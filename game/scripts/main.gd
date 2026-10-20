@@ -244,43 +244,71 @@ func _setup_splash_screen() -> void:
 		var timer = get_tree().create_timer(0.4)
 		timer.timeout.connect(func():
 			var chest_scene = preload("res://scenes/treasure_chest.tscn")
-			var test_chest = chest_scene.instantiate() as TreasureChest
-			test_chest.rarity = TreasureChest.ChestRarity.LUXURIOUS
-			var spawn_pos = Vector3(14.0, AsianWorldBuilder.get_terrain_height(14.0, -14.0) + 0.05, -14.0)
+			var base_pos = Vector3(31.0, AsianWorldBuilder.get_terrain_height(31.0, -38.0) + 0.05, -38.0)
 			if player:
-				player.global_position = spawn_pos + Vector3(0, 0, 2.2)
+				player.rotation_degrees = Vector3.ZERO
+				player.global_position = base_pos + Vector3(0.0, 0.05, 4.6)
 				if player.camera_pivot:
-					player.camera_pivot.rotation_degrees = Vector3(-10.0, 180.0, 0.0)
+					player.camera_pivot.rotation_degrees = Vector3(-13.0, 0.0, 0.0)
 				if player.spring_arm:
-					player.spring_arm.spring_length = 3.6
-			test_chest.position = spawn_pos
-			test_chest.rotation_degrees.y = 0.0
-			add_child(test_chest)
+					player.spring_arm.spring_length = 6.0
+				if player.camera_node:
+					player.camera_node.h_offset = 0.0
 
-			var t_open = get_tree().create_timer(0.4)
-			t_open.timeout.connect(func():
-				test_chest.open_chest()
+			# Spawn a rich lineup of 7 diverse and colorful chests side by side
+			var varieties = [
+				{"offset": Vector3(-4.2, 0, 0), "rarity": TreasureChest.ChestRarity.COMMON, "theme": ""},
+				{"offset": Vector3(-2.8, 0, 0), "rarity": TreasureChest.ChestRarity.EXQUISITE, "theme": ""},
+				{"offset": Vector3(-1.4, 0, 0), "rarity": TreasureChest.ChestRarity.EXQUISITE, "theme": "school"},
+				{"offset": Vector3(0.0, 0, 0), "rarity": TreasureChest.ChestRarity.PRECIOUS, "theme": ""},
+				{"offset": Vector3(1.4, 0, 0), "rarity": TreasureChest.ChestRarity.LUXURIOUS, "theme": ""},
+				{"offset": Vector3(2.8, 0, 0), "rarity": TreasureChest.ChestRarity.EXQUISITE, "theme": "cyber"},
+				{"offset": Vector3(4.2, 0, 0), "rarity": TreasureChest.ChestRarity.COMMON, "theme": "undead"}
+			]
+			var chests: Array[TreasureChest] = []
+			for v in varieties:
+				var c = chest_scene.instantiate() as TreasureChest
+				c.rarity = v["rarity"]
+				if v["theme"] != "":
+					c.theme_style = v["theme"]
+				c.position = base_pos + v["offset"]
+				c.rotation_degrees.y = 0.0
+				add_child(c)
+				chests.append(c)
 
-				# Shot 1: Opening animation, lid fling, sunburst pillar, ring, and spewing loot & EXP
-				var t_shot1 = get_tree().create_timer(0.25)
+			# Shot 1: Lineup of diverse colorful chests
+			var t_lineup = get_tree().create_timer(0.4)
+			t_lineup.timeout.connect(func():
+				await RenderingServer.frame_post_draw
+				var vp = get_viewport()
+				if vp:
+					var img = vp.get_texture().get_image()
+					if img:
+						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/chests_lineup_preview.png")
+						print("[CHEST] Saved chests_lineup_preview.png")
+
+				# Open the center Precious chest (chests[3]) to test the non-blinding animation
+				var target_chest = chests[3]
+				target_chest.open_chest()
+
+				# Shot 2: Opening animation, gentle ethereal light beam and springy lid fling
+				var t_shot1 = get_tree().create_timer(0.28)
 				t_shot1.timeout.connect(func():
 					await RenderingServer.frame_post_draw
-					var vp = get_viewport()
 					if vp:
-						var img = vp.get_texture().get_image()
-						if img:
-							img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/chest_opening_vfx.png")
+						var img2 = vp.get_texture().get_image()
+						if img2:
+							img2.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/chest_opening_vfx.png")
 							print("[CHEST] Saved chest_opening_vfx.png")
 
-					# Shot 2: Exactly ~1.15s after open (evaporation to particles after 1.0s)
-					var t_shot2 = get_tree().create_timer(0.92)
+					# Shot 3: Soft stardust evaporation at 1.15s (after 1.0s dissolve timer)
+					var t_shot2 = get_tree().create_timer(0.90)
 					t_shot2.timeout.connect(func():
 						await RenderingServer.frame_post_draw
-						var vp2 = get_viewport()
-						if vp2:
-							var img2 = vp2.get_texture().get_image()
-							if img2:
-								img2.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/chest_dissolve_vfx.png")
+						if vp:
+							var img3 = vp.get_texture().get_image()
+							if img3:
+								img3.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/chest_dissolve_vfx.png")
 								print("[CHEST] Saved chest_dissolve_vfx.png")
 						get_tree().quit(0)
 						OS.kill(OS.get_process_id())
@@ -541,12 +569,12 @@ func _spawn_world_chests() -> void:
 		{"pos": Vector3(25.0, 3.1, 10.5), "rarity": 1, "rot": 180.0}, # Southern Promenade Gate Chest (Exquisite)
 
 		# --- 3-Story Japanese High School (桜ヶ丘学園) ---
-		{"pos": Vector3(30.0, 14.1, -48.0), "rarity": 3, "rot": 0.0, "fixed_y": true}, # School Rooftop Observatory Chest (Luxurious)
-		{"pos": Vector3(24.5, 6.9, -46.0), "rarity": 1, "rot": 90.0, "fixed_y": true}, # School 2nd Floor Classroom 2-A Chest (Exquisite)
-		{"pos": Vector3(35.5, 10.5, -46.0), "rarity": 2, "rot": -90.0, "fixed_y": true}, # School 3rd Floor Student Council Chest (Precious)
-		{"pos": Vector3(30.0, 3.3, -44.0), "rarity": 1, "rot": 0.0, "fixed_y": true}, # School Entrance Genkan Lockers Chest (Exquisite)
-		{"pos": Vector3(16.5, 3.2, -29.0), "rarity": 0, "rot": 45.0}, # School Athletic Track Goal Chest (Common)
-		{"pos": Vector3(14.0, 3.2, -40.0), "rarity": 0, "rot": -45.0}, # School Bicycle Parking Shelter Chest (Common)
+		{"pos": Vector3(30.0, 14.1, -48.0), "rarity": 3, "rot": 0.0, "fixed_y": true, "theme": "school"}, # School Rooftop Observatory Chest (Luxurious)
+		{"pos": Vector3(24.5, 6.9, -46.0), "rarity": 1, "rot": 90.0, "fixed_y": true, "theme": "school"}, # School 2nd Floor Classroom 2-A Chest (Exquisite)
+		{"pos": Vector3(35.5, 10.5, -46.0), "rarity": 2, "rot": -90.0, "fixed_y": true, "theme": "school"}, # School 3rd Floor Student Council Chest (Precious)
+		{"pos": Vector3(30.0, 3.3, -44.0), "rarity": 1, "rot": 0.0, "fixed_y": true, "theme": "school"}, # School Entrance Genkan Lockers Chest (Exquisite)
+		{"pos": Vector3(16.5, 3.2, -29.0), "rarity": 0, "rot": 45.0, "theme": "school"}, # School Athletic Track Goal Chest (Common)
+		{"pos": Vector3(14.0, 3.2, -40.0), "rarity": 0, "rot": -45.0, "theme": "school"}, # School Bicycle Parking Shelter Chest (Common)
 
 		# --- Bamboo Forest, Karst Peaks & Dragon Sanctum ---
 		{"pos": Vector3(-40.0, 3.0, 56.0), "rarity": 1, "rot": 75.0}, # Bamboo Forest Grove Chest (Exquisite)
@@ -558,10 +586,10 @@ func _spawn_world_chests() -> void:
 		{"pos": Vector3(52.0, 8.8, 70.0), "rarity": 3, "rot": 0.0}, # Dragon Sanctum Inner Hoard Chest (Luxurious)
 
 		# --- Outer Frontiers: Undead Plaguelands & Cyber City ---
-		{"pos": Vector3(-48.0, 2.6, -74.0), "rarity": 2, "rot": 0.0}, # Undead Crypt Mausoleum Chest (Precious)
-		{"pos": Vector3(-58.0, 3.2, -85.0), "rarity": 3, "rot": -35.0}, # Lich King's Obsidian Sepulcher Chest (Luxurious)
-		{"pos": Vector3(32.0, 3.4, 90.0), "rarity": 1, "rot": 60.0}, # Cyber City Neon Backalley Chest (Exquisite)
-		{"pos": Vector3(45.0, 3.5, 96.0), "rarity": 3, "rot": 180.0} # Cyber City Central Plaza Tower Chest (Luxurious)
+		{"pos": Vector3(-48.0, 2.6, -74.0), "rarity": 2, "rot": 0.0, "theme": "undead"}, # Undead Crypt Mausoleum Chest (Precious)
+		{"pos": Vector3(-58.0, 3.2, -85.0), "rarity": 3, "rot": -35.0, "theme": "undead"}, # Lich King's Obsidian Sepulcher Chest (Luxurious)
+		{"pos": Vector3(32.0, 3.4, 90.0), "rarity": 1, "rot": 60.0, "theme": "cyber"}, # Cyber City Neon Backalley Chest (Exquisite)
+		{"pos": Vector3(45.0, 3.5, 96.0), "rarity": 3, "rot": 180.0, "theme": "cyber"} # Cyber City Central Plaza Tower Chest (Luxurious)
 	]
 	for c_data in chest_locations:
 		var chest = chest_scene.instantiate() as TreasureChest
@@ -572,6 +600,8 @@ func _spawn_world_chests() -> void:
 				pos.y = th + c_data.get("y_offset", 0.05)
 		chest.position = pos
 		chest.rarity = c_data["rarity"] as TreasureChest.ChestRarity
+		if c_data.has("theme"):
+			chest.theme_style = c_data["theme"]
 		chest.rotation_degrees.y = c_data.get("rot", 0.0)
 		add_child(chest)
 

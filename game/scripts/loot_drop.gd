@@ -143,12 +143,12 @@ func _update_appearance() -> void:
 		beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		beam_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		beam_mat.albedo_color = Color(c.r, c.g, c.b, 0.6)
+		beam_mat.albedo_color = Color(c.r, c.g, c.b, 0.22)
 		light_beam.material_override = beam_mat
 
 	if omni_light:
 		omni_light.light_color = c
-		omni_light.light_energy = 1.2 if rarity < Rarity.EPIC else 2.5
+		omni_light.light_energy = 0.4 if rarity < Rarity.EPIC else 0.75
 
 func _on_body_entered(body: Node3D) -> void:
 	if body.is_in_group("player") and not is_collected:
