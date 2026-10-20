@@ -239,6 +239,57 @@ func _setup_splash_screen() -> void:
 		)
 		return
 
+	if "--test-chest" in OS.get_cmdline_args():
+		_on_splash_started()
+		var timer = get_tree().create_timer(0.4)
+		timer.timeout.connect(func():
+			var chest_scene = preload("res://scenes/treasure_chest.tscn")
+			var test_chest = chest_scene.instantiate() as TreasureChest
+			test_chest.rarity = TreasureChest.ChestRarity.LUXURIOUS
+			var spawn_pos = Vector3(14.0, AsianWorldBuilder.get_terrain_height(14.0, -14.0) + 0.05, -14.0)
+			if player:
+				player.global_position = spawn_pos + Vector3(0, 0, 2.2)
+				if player.camera_pivot:
+					player.camera_pivot.rotation_degrees = Vector3(-10.0, 180.0, 0.0)
+				if player.spring_arm:
+					player.spring_arm.spring_length = 3.6
+			test_chest.position = spawn_pos
+			test_chest.rotation_degrees.y = 0.0
+			add_child(test_chest)
+
+			var t_open = get_tree().create_timer(0.4)
+			t_open.timeout.connect(func():
+				test_chest.open_chest()
+
+				# Shot 1: Opening animation, lid fling, sunburst pillar, ring, and spewing loot & EXP
+				var t_shot1 = get_tree().create_timer(0.25)
+				t_shot1.timeout.connect(func():
+					await RenderingServer.frame_post_draw
+					var vp = get_viewport()
+					if vp:
+						var img = vp.get_texture().get_image()
+						if img:
+							img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/chest_opening_vfx.png")
+							print("[CHEST] Saved chest_opening_vfx.png")
+
+					# Shot 2: Exactly ~1.15s after open (evaporation to particles after 1.0s)
+					var t_shot2 = get_tree().create_timer(0.92)
+					t_shot2.timeout.connect(func():
+						await RenderingServer.frame_post_draw
+						var vp2 = get_viewport()
+						if vp2:
+							var img2 = vp2.get_texture().get_image()
+							if img2:
+								img2.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/chest_dissolve_vfx.png")
+								print("[CHEST] Saved chest_dissolve_vfx.png")
+						get_tree().quit(0)
+						OS.kill(OS.get_process_id())
+					)
+				)
+			)
+		)
+		return
+
 	if "--test-water" in OS.get_cmdline_args():
 		_on_splash_started()
 		var timer = get_tree().create_timer(0.4)
@@ -475,26 +526,53 @@ func _spawn_companions() -> void:
 func _spawn_world_chests() -> void:
 	var chest_scene = preload("res://scenes/treasure_chest.tscn")
 	var chest_locations = [
-		{"pos": Vector3(-22.0, 1.8, -2.0), "rarity": 0, "rot": 45.0}, # Sakura Lake Meditation Chest
-		{"pos": Vector3(44.0, 4.8, 2.0), "rarity": 1, "rot": -30.0}, # Pagoda Terrace Exquisite Chest
-		{"pos": Vector3(-40.0, 3.0, 56.0), "rarity": 1, "rot": 75.0}, # Bamboo Forest Exquisite Chest
-		{"pos": Vector3(44.0, 8.0, 54.0), "rarity": 2, "rot": -15.0}, # Karst Mountain Pass Precious Chest
-		{"pos": Vector3(52.0, 8.8, 70.0), "rarity": 3, "rot": 0.0}, # Dragon Sanctum Luxurious Chest!
-		# New POI Discovery Chests
-		{"pos": Vector3(-32.0, 2.5, -16.0), "rarity": 2, "rot": 45.0}, # Kitsune Shrine Precious Chest
-		{"pos": Vector3(3.8, 0.45, 17.5), "rarity": 0, "rot": 0.0}, # River Fisherman's Wharf Common Chest
-		{"pos": Vector3(39.5, 2.2, 19.5), "rarity": 1, "rot": -25.0}, # Bandit Camp Exquisite Chest
-		{"pos": Vector3(22.0, 3.2, 40.5), "rarity": 1, "rot": 90.0}, # Mountain Teahouse Exquisite Chest
-		{"pos": Vector3(-28.0, 2.6, 51.0), "rarity": 2, "rot": 30.0}, # Ancient Ruins Precious Chest
-		# Expansion Territorries Chests
-		{"pos": Vector3(-48.0, 2.6, -74.0), "rarity": 2, "rot": 0.0}, # Undead Crypt Precious Chest
-		{"pos": Vector3(45.0, 3.5, 96.0), "rarity": 3, "rot": 180.0} # Cyber City Plaza Luxurious Chest
+		# --- Sakura Valley & Lakeside ---
+		{"pos": Vector3(-22.0, 1.8, -2.0), "rarity": 0, "rot": 45.0}, # Sakura Lake Meditation Chest (Common)
+		{"pos": Vector3(-32.0, 2.5, -16.0), "rarity": 2, "rot": 45.0}, # Kitsune Shrine Sacred Chest (Precious)
+		{"pos": Vector3(-14.0, 1.9, 12.0), "rarity": 0, "rot": -15.0}, # Blossom Grove Clearing Chest (Common)
+		{"pos": Vector3(-3.5, 0.5, -30.0), "rarity": 0, "rot": 90.0}, # Riverside Fishing Pier Chest (Common)
+		{"pos": Vector3(3.8, 0.45, 17.5), "rarity": 0, "rot": 0.0}, # River Fisherman's Wharf Chest (Common)
+		{"pos": Vector3(0.0, 3.6, -6.0), "rarity": 1, "rot": 90.0, "fixed_y": true}, # Grand Moon Bridge Arch Chest (Exquisite)
+
+		# --- Asian City & Market District ---
+		{"pos": Vector3(18.0, 3.2, -18.0), "rarity": 0, "rot": 35.0}, # Merchant Alley Nook Chest (Common)
+		{"pos": Vector3(44.0, 4.8, 2.0), "rarity": 1, "rot": -30.0}, # Pagoda Lower Terrace Chest (Exquisite)
+		{"pos": Vector3(46.0, 9.8, -6.0), "rarity": 3, "rot": -90.0, "fixed_y": true}, # Pagoda Grand Spire Balcony Chest (Luxurious)
+		{"pos": Vector3(25.0, 3.1, 10.5), "rarity": 1, "rot": 180.0}, # Southern Promenade Gate Chest (Exquisite)
+
+		# --- 3-Story Japanese High School (桜ヶ丘学園) ---
+		{"pos": Vector3(30.0, 14.1, -48.0), "rarity": 3, "rot": 0.0, "fixed_y": true}, # School Rooftop Observatory Chest (Luxurious)
+		{"pos": Vector3(24.5, 6.9, -46.0), "rarity": 1, "rot": 90.0, "fixed_y": true}, # School 2nd Floor Classroom 2-A Chest (Exquisite)
+		{"pos": Vector3(35.5, 10.5, -46.0), "rarity": 2, "rot": -90.0, "fixed_y": true}, # School 3rd Floor Student Council Chest (Precious)
+		{"pos": Vector3(30.0, 3.3, -44.0), "rarity": 1, "rot": 0.0, "fixed_y": true}, # School Entrance Genkan Lockers Chest (Exquisite)
+		{"pos": Vector3(16.5, 3.2, -29.0), "rarity": 0, "rot": 45.0}, # School Athletic Track Goal Chest (Common)
+		{"pos": Vector3(14.0, 3.2, -40.0), "rarity": 0, "rot": -45.0}, # School Bicycle Parking Shelter Chest (Common)
+
+		# --- Bamboo Forest, Karst Peaks & Dragon Sanctum ---
+		{"pos": Vector3(-40.0, 3.0, 56.0), "rarity": 1, "rot": 75.0}, # Bamboo Forest Grove Chest (Exquisite)
+		{"pos": Vector3(-12.0, 0.6, 32.0), "rarity": 2, "rot": 120.0}, # Hidden Waterfall Basin Cavern Chest (Precious)
+		{"pos": Vector3(22.0, 3.2, 40.5), "rarity": 1, "rot": 90.0}, # Mountain Teahouse Vista Chest (Exquisite)
+		{"pos": Vector3(39.5, 2.2, 19.5), "rarity": 1, "rot": -25.0}, # Bandit Camp Fortress Chest (Exquisite)
+		{"pos": Vector3(-28.0, 2.6, 51.0), "rarity": 2, "rot": 30.0}, # Ancient Stone Ruins Altar Chest (Precious)
+		{"pos": Vector3(44.0, 8.0, 54.0), "rarity": 2, "rot": -15.0}, # Karst Mountain Summit Pass Chest (Precious)
+		{"pos": Vector3(52.0, 8.8, 70.0), "rarity": 3, "rot": 0.0}, # Dragon Sanctum Inner Hoard Chest (Luxurious)
+
+		# --- Outer Frontiers: Undead Plaguelands & Cyber City ---
+		{"pos": Vector3(-48.0, 2.6, -74.0), "rarity": 2, "rot": 0.0}, # Undead Crypt Mausoleum Chest (Precious)
+		{"pos": Vector3(-58.0, 3.2, -85.0), "rarity": 3, "rot": -35.0}, # Lich King's Obsidian Sepulcher Chest (Luxurious)
+		{"pos": Vector3(32.0, 3.4, 90.0), "rarity": 1, "rot": 60.0}, # Cyber City Neon Backalley Chest (Exquisite)
+		{"pos": Vector3(45.0, 3.5, 96.0), "rarity": 3, "rot": 180.0} # Cyber City Central Plaza Tower Chest (Luxurious)
 	]
 	for c_data in chest_locations:
 		var chest = chest_scene.instantiate() as TreasureChest
-		chest.position = c_data["pos"]
+		var pos: Vector3 = c_data["pos"]
+		if not c_data.get("fixed_y", false):
+			var th = AsianWorldBuilder.get_terrain_height(pos.x, pos.z)
+			if th > -1.5:
+				pos.y = th + c_data.get("y_offset", 0.05)
+		chest.position = pos
 		chest.rarity = c_data["rarity"] as TreasureChest.ChestRarity
-		chest.rotation_degrees.y = c_data["rot"]
+		chest.rotation_degrees.y = c_data.get("rot", 0.0)
 		add_child(chest)
 
 func _update_monster_spawning(force: bool = false) -> void:
