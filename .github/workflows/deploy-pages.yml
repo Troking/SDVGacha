@@ -15,44 +15,34 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  export_web:
     runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3.0
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           lfs: true
 
-      - name: Set up Godot Engine 4.3
-        run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq wget unzip
-          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
-          unzip -q Godot_v4.3-stable_linux.x86_64.zip
-          sudo mv Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
-          sudo chmod +x /usr/local/bin/godot
-
-          mkdir -p ~/.local/share/godot/export_templates/4.3.stable
-          wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
-          unzip -q Godot_v4.3-stable_export_templates.tpz
-          mv templates/* ~/.local/share/godot/export_templates/4.3.stable/
-
       - name: Export Web Game
         run: |
-          mkdir -p build/web
-          godot --headless --path game --export-release "Web" $(pwd)/build/web/index.html
+          mkdir -v -p build/web
+          godot -v --headless --path game --export-release "Web" ../build/web/index.html
           cp game/coi-serviceworker.js build/web/coi-serviceworker.js
-
-      - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
+  deploy:
+    needs: export_web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

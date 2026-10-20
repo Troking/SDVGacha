@@ -2,8 +2,9 @@
 .godot/
 
 # Build artifacts
-build/
-dist/
+build/*
+!build/web/
+!build/web/.gitkeep
 
 # Large binaries exceeding GitHub 100MB limit
 tools/*.exe
