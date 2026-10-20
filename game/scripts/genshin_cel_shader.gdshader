@@ -85,6 +85,11 @@ void fragment() {
 		base = mix(base, hit_flash_color.rgb, hit_flash);
 	}
 
+	if (is_face) {
+		// Soften face exposure so delicate anime skin blush and contours remain rich and visible under bright outdoor sunlight
+		base = mix(base, base * vec3(0.96, 0.90, 0.88), 0.25);
+	}
+
 	ALBEDO = base;
 	ALPHA = alpha;
 	ALPHA_SCISSOR_THRESHOLD = alpha_scissor_threshold;
@@ -143,6 +148,10 @@ void light() {
 	}
 
 	// Controlled diffuse & specular accumulation per light (prevents multi-light blowout)
-	DIFFUSE_LIGHT += clamp(diffuse_result * 0.55 + rim_result, vec3(0.0), vec3(0.65));
+	if (is_face) {
+		DIFFUSE_LIGHT += clamp(diffuse_result * 0.35, vec3(0.0), vec3(0.40));
+	} else {
+		DIFFUSE_LIGHT += clamp(diffuse_result * 0.55 + rim_result, vec3(0.0), vec3(0.65));
+	}
 	SPECULAR_LIGHT += clamp(spec_result, vec3(0.0), vec3(0.14));
 }

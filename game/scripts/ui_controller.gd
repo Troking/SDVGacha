@@ -4,6 +4,9 @@ extends CanvasLayer
 @onready var hints_panel: Control = $HintsPanel
 @onready var character_sheet: Control = $CharacterSheet
 @onready var close_btn: Button = $CharacterSheet/TopBar/CloseBtn
+@onready var sheet_element_badge: Label = $CharacterSheet/TopBar/ElementTitleHBox/ElementBadge
+@onready var sheet_role_badge: Label = $CharacterSheet/TopBar/ElementTitleHBox/RoleBadge
+@onready var sheet_title_label: Label = $CharacterSheet/TopBar/ElementTitleHBox/Title
 
 # HUD elements
 @onready var hp_bar: ProgressBar = $PlayerHUD/BottomCenterHUD/BarsVBox/HPContainer/HPBar
@@ -1068,8 +1071,10 @@ func open_character_sheet() -> void:
 
 	backdrop_overlay.visible = true
 	backdrop_overlay.modulate.a = 0.0
+	backdrop_overlay.move_to_front()
 	character_sheet.visible = true
 	character_sheet.modulate.a = 0.0
+	character_sheet.move_to_front()
 	character_sheet.pivot_offset = Vector2(960, 540)
 	character_sheet.scale = Vector2(0.96, 0.96)
 
@@ -1126,6 +1131,16 @@ func _on_preview_gui_input(event: InputEvent) -> void:
 			preview_3d.handle_drag(event.relative.x)
 
 func _input(event: InputEvent) -> void:
+	if vn_is_active:
+		if event is InputEventMouseButton and event.is_pressed() and event.button_index == MOUSE_BUTTON_LEFT:
+			_advance_vn()
+			get_viewport().set_input_as_handled()
+			return
+		elif event is InputEventKey and event.is_pressed() and not event.is_echo() and (event.keycode == KEY_SPACE or event.keycode == KEY_ENTER):
+			_advance_vn()
+			get_viewport().set_input_as_handled()
+			return
+
 	if event.is_action_pressed("open_character_sheet"):
 		toggle_character_sheet()
 	elif event is InputEventKey and event.is_pressed() and event.keycode == KEY_ESCAPE:
@@ -1168,35 +1183,86 @@ func update_stats(hp: int, max_hp: int, exp_val: int, exp_to_next: int, level: i
 	update_character_sheet_text()
 
 func update_character_sheet_text() -> void:
-	if hero_name_label:
-		hero_name_label.text = "Ху Тао"
-	if stars_label:
-		stars_label.text = "★ ★ ★ ★ ★"
-	if level_display_label:
-		level_display_label.text = "УРОВЕНЬ  " + str(level_val) + " / 90   ✦   ФАЗА 0"
-	if stats_list_label:
-		var def_bonus = InventoryManager.get_defense_bonus()
-		var def_val = 10 + def_bonus
-		var spd_bonus = InventoryManager.get_speed_bonus()
-		var spd_val = 7.0 + spd_bonus
-		var atk_bonus = InventoryManager.get_attack_bonus()
-		var atk_val = 15 + atk_bonus
-		var lines: Array[String] = []
-		lines.append("  ❤️  Макс. HP:                %d" % max_hp_val)
-		if atk_bonus > 0:
-			lines.append("  ⚔️  Сила Атаки:             %d  (+%d)" % [atk_val, atk_bonus])
-		else:
-			lines.append("  ⚔️  Сила Атаки:             %d" % atk_val)
-		if def_bonus > 0:
-			lines.append("  🛡️  Защита:                 %d  (+%d)" % [def_val, def_bonus])
-		else:
-			lines.append("  🛡️  Защита:                 %d" % def_val)
-		lines.append("  ⚡  Скорость бега:          %.1f м/с" % spd_val)
-		lines.append("  🔥  Бонус Пиро-урона:       +15.0%")
-		lines.append("  🎯  Крит. шанс:             5.0%")
-		lines.append("  💥  Крит. урон:             50.0%")
-		lines.append("  ✨  Опыт героя:             %d / %d XP" % [exp_val_val, exp_to_next_val])
-		stats_list_label.text = "\n".join(lines)
+	var player = get_tree().get_first_node_in_group("player")
+	var active_char = "hutao"
+	if player and "current_character_id" in player:
+		active_char = player.current_character_id
+
+	if preview_3d and preview_3d.has_method("set_preview_character"):
+		preview_3d.set_preview_character(active_char)
+
+	if active_char == "ellen":
+		if hero_name_label:
+			hero_name_label.text = "Эллен Джо"
+		if sheet_title_label:
+			sheet_title_label.text = "✦  Эллен Джо (Ellen Joe)  ✦"
+		if sheet_element_badge:
+			sheet_element_badge.text = "❄️"
+			sheet_element_badge.add_theme_color_override("font_color", Color(0.3, 0.85, 1.0))
+		if sheet_role_badge:
+			sheet_role_badge.text = "  [ Victoria Housekeeping • Горничная • Крио • 5★ ]"
+			sheet_role_badge.add_theme_color_override("font_color", Color(0.65, 0.90, 1.0, 0.9))
+		if stars_label:
+			stars_label.text = "★ ★ ★ ★ ★"
+		if level_display_label:
+			level_display_label.text = "УРОВЕНЬ  " + str(level_val) + " / 90   ✦   ФАЗА 6 (МАКС.)"
+		if stats_list_label:
+			var def_bonus = InventoryManager.get_defense_bonus()
+			var def_val = 16 + def_bonus
+			var spd_bonus = InventoryManager.get_speed_bonus()
+			var spd_val = 7.4 + spd_bonus
+			var atk_bonus = InventoryManager.get_attack_bonus()
+			var atk_val = 28 + atk_bonus
+			var lines: Array[String] = []
+			lines.append("  ❤️  Макс. HP:                15,480  (+3,240)")
+			lines.append("  ⚔️  Сила Атаки:             %d  (+%d)" % [atk_val, 45 + atk_bonus])
+			lines.append("  🛡️  Защита:                 %d  (+%d)" % [def_val, 20 + def_bonus])
+			lines.append("  ⚡  Скорость бега:          %.1f м/с  (+15%%)" % spd_val)
+			lines.append("  ❄️  Бонус Крио-урона:       +24.0%")
+			lines.append("  🎯  Крит. шанс:             68.4%")
+			lines.append("  💥  Крит. урон:             194.2%")
+			lines.append("  ⚡  Восст. энергии:         135.0%")
+			lines.append("  ✨  Опыт героя:             %d / %d XP" % [exp_val_val, exp_to_next_val])
+			stats_list_label.text = "\n".join(lines)
+	else:
+		if hero_name_label:
+			hero_name_label.text = "Ху Тао"
+		if sheet_title_label:
+			sheet_title_label.text = "✦  Ху Тао (Hu Tao)  ✦"
+		if sheet_element_badge:
+			sheet_element_badge.text = "🔥"
+			sheet_element_badge.add_theme_color_override("font_color", Color(1.0, 0.55, 0.15))
+		if sheet_role_badge:
+			sheet_role_badge.text = "  [ 77-я Управляющая бюро «Ваншэн» • Пиро • 5★ ]"
+			sheet_role_badge.add_theme_color_override("font_color", Color(1.0, 0.75, 0.35, 0.85))
+		if stars_label:
+			stars_label.text = "★ ★ ★ ★ ★"
+		if level_display_label:
+			level_display_label.text = "УРОВЕНЬ  " + str(level_val) + " / 90   ✦   ФАЗА 6 (МАКС.)"
+		if stats_list_label:
+			var def_bonus = InventoryManager.get_defense_bonus()
+			var def_val = 10 + def_bonus
+			var spd_bonus = InventoryManager.get_speed_bonus()
+			var spd_val = 7.0 + spd_bonus
+			var atk_bonus = InventoryManager.get_attack_bonus()
+			var atk_val = 15 + atk_bonus
+			var lines: Array[String] = []
+			lines.append("  ❤️  Макс. HP:                %d" % max_hp_val)
+			if atk_bonus > 0:
+				lines.append("  ⚔️  Сила Атаки:             %d  (+%d)" % [atk_val, atk_bonus])
+			else:
+				lines.append("  ⚔️  Сила Атаки:             %d" % atk_val)
+			if def_bonus > 0:
+				lines.append("  🛡️  Защита:                 %d  (+%d)" % [def_val, def_bonus])
+			else:
+				lines.append("  🛡️  Защита:                 %d" % def_val)
+			lines.append("  ⚡  Скорость бега:          %.1f м/с" % spd_val)
+			lines.append("  🔥  Бонус Пиро-урона:       +15.0%")
+			lines.append("  🎯  Крит. шанс:             52.8%")
+			lines.append("  💥  Крит. урон:             168.4%")
+			lines.append("  ⚡  Восст. энергии:         120.0%")
+			lines.append("  ✨  Опыт героя:             %d / %d XP" % [exp_val_val, exp_to_next_val])
+			stats_list_label.text = "\n".join(lines)
 
 func show_exp_gain(amount: int) -> void:
 	if not exp_popup_label:
@@ -1452,24 +1518,24 @@ func _setup_visual_novel_ui() -> void:
 	var bot_box = PanelContainer.new()
 	bot_box.name = "DialogBox"
 	bot_box.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bot_box.offset_left = 64.0
-	bot_box.offset_top = -250.0
-	bot_box.offset_right = -64.0
-	bot_box.offset_bottom = -24.0
+	bot_box.offset_left = 80.0
+	bot_box.offset_top = -295.0
+	bot_box.offset_right = -80.0
+	bot_box.offset_bottom = -26.0
 
 	var sb_dialog = StyleBoxFlat.new()
-	sb_dialog.bg_color = Color(0.06, 0.06, 0.10, 0.94)
-	sb_dialog.border_width_left = 2
-	sb_dialog.border_width_top = 2
-	sb_dialog.border_width_right = 2
-	sb_dialog.border_width_bottom = 2
-	sb_dialog.border_color = Color(0.9, 0.78, 0.4, 0.85)
-	sb_dialog.corner_radius_top_left = 16
-	sb_dialog.corner_radius_top_right = 16
-	sb_dialog.corner_radius_bottom_right = 16
-	sb_dialog.corner_radius_bottom_left = 16
-	sb_dialog.shadow_color = Color(0, 0, 0, 0.5)
-	sb_dialog.shadow_size = 12
+	sb_dialog.bg_color = Color(0.04, 0.05, 0.09, 0.96)
+	sb_dialog.border_width_left = 3
+	sb_dialog.border_width_top = 3
+	sb_dialog.border_width_right = 3
+	sb_dialog.border_width_bottom = 3
+	sb_dialog.border_color = Color(1.0, 0.84, 0.42, 0.92)
+	sb_dialog.corner_radius_top_left = 18
+	sb_dialog.corner_radius_top_right = 18
+	sb_dialog.corner_radius_bottom_right = 18
+	sb_dialog.corner_radius_bottom_left = 18
+	sb_dialog.shadow_color = Color(0, 0, 0, 0.6)
+	sb_dialog.shadow_size = 16
 	bot_box.add_theme_stylebox_override("panel", sb_dialog)
 	vn_root.add_child(bot_box)
 
@@ -1487,7 +1553,7 @@ func _setup_visual_novel_ui() -> void:
 	# Speaker Portrait on left side of dialog box
 	vn_portrait = TextureRect.new()
 	vn_portrait.name = "VNPortrait"
-	vn_portrait.custom_minimum_size = Vector2(170, 170)
+	vn_portrait.custom_minimum_size = Vector2(195, 195)
 	vn_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	vn_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	hbox.add_child(vn_portrait)
@@ -1505,22 +1571,22 @@ func _setup_visual_novel_ui() -> void:
 
 	vn_name_label = Label.new()
 	vn_name_label.text = "Эллен Джо"
-	vn_name_label.add_theme_font_size_override("font_size", 22)
-	vn_name_label.add_theme_color_override("font_color", Color(1.0, 0.90, 0.45))
+	vn_name_label.add_theme_font_size_override("font_size", 28)
+	vn_name_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.40))
 	name_hbox.add_child(vn_name_label)
 
 	vn_title_label = Label.new()
 	vn_title_label.text = "[ Victoria Housekeeping • Горничная ]"
-	vn_title_label.add_theme_font_size_override("font_size", 14)
-	vn_title_label.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0, 0.85))
+	vn_title_label.add_theme_font_size_override("font_size", 16)
+	vn_title_label.add_theme_color_override("font_color", Color(0.35, 0.88, 1.0, 0.90))
 	name_hbox.add_child(vn_title_label)
 
 	# Dialogue Text Label (supports typewriter effect)
 	vn_text_label = Label.new()
 	vn_text_label.name = "DialogueText"
-	vn_text_label.add_theme_font_size_override("font_size", 17)
-	vn_text_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.98))
-	vn_text_label.add_theme_constant_override("line_spacing", 6)
+	vn_text_label.add_theme_font_size_override("font_size", 25)
+	vn_text_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+	vn_text_label.add_theme_constant_override("line_spacing", 8)
 	vn_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vn_text_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	text_vbox.add_child(vn_text_label)
@@ -1535,8 +1601,8 @@ func _setup_visual_novel_ui() -> void:
 	# Continue Hint
 	vn_continue_label = Label.new()
 	vn_continue_label.text = "✦  [ Кликните ЛКМ или нажмите ПРОБЕЛ для продолжения ]  ✦"
-	vn_continue_label.add_theme_font_size_override("font_size", 13)
-	vn_continue_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35, 0.75))
+	vn_continue_label.add_theme_font_size_override("font_size", 15)
+	vn_continue_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.40, 0.85))
 	vn_continue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	text_vbox.add_child(vn_continue_label)
 
@@ -1556,11 +1622,12 @@ func start_visual_novel_dialogue(speaker_info: Dictionary, dialogue_data: Dictio
 	if tex:
 		vn_portrait.texture = tex
 
-	# Hide HUD during cutscene
+	# Hide HUD and touch controls during cutscene
 	player_hud.visible = false
 	hints_panel.visible = false
 	if touch_controls:
 		touch_controls.visible = false
+	vn_root.move_to_front()
 
 	# Show VN Root with smooth fade
 	vn_root.visible = true
@@ -1607,29 +1674,29 @@ func _show_vn_choices() -> void:
 	for c_data in choices:
 		var btn = Button.new()
 		btn.text = c_data.get("text", "")
-		btn.custom_minimum_size = Vector2(0, 42)
+		btn.custom_minimum_size = Vector2(0, 52)
 		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.12, 0.14, 0.22, 0.95)
+		sb.bg_color = Color(0.10, 0.12, 0.20, 0.96)
 		sb.border_width_left = 3
-		sb.border_width_top = 1
-		sb.border_width_right = 1
-		sb.border_width_bottom = 1
-		sb.border_color = Color(0.3, 0.85, 1.0, 1.0)
-		sb.corner_radius_top_left = 8
-		sb.corner_radius_top_right = 8
-		sb.corner_radius_bottom_right = 8
-		sb.corner_radius_bottom_left = 8
+		sb.border_width_top = 2
+		sb.border_width_right = 2
+		sb.border_width_bottom = 2
+		sb.border_color = Color(0.35, 0.88, 1.0, 1.0)
+		sb.corner_radius_top_left = 10
+		sb.corner_radius_top_right = 10
+		sb.corner_radius_bottom_right = 10
+		sb.corner_radius_bottom_left = 10
 		btn.add_theme_stylebox_override("normal", sb)
 
 		var sb_hov = sb.duplicate() as StyleBoxFlat
-		sb_hov.bg_color = Color(0.18, 0.22, 0.35, 1.0)
-		sb_hov.border_color = Color(0.6, 0.95, 1.0, 1.0)
+		sb_hov.bg_color = Color(0.18, 0.24, 0.38, 1.0)
+		sb_hov.border_color = Color(0.7, 0.98, 1.0, 1.0)
 		btn.add_theme_stylebox_override("hover", sb_hov)
 		btn.add_theme_stylebox_override("pressed", sb_hov)
-		btn.add_theme_font_size_override("font_size", 15)
-		btn.add_theme_color_override("font_color", Color(1.0, 0.95, 0.85))
+		btn.add_theme_font_size_override("font_size", 20)
+		btn.add_theme_color_override("font_color", Color(1.0, 0.96, 0.88))
 
 		var chosen = c_data
 		btn.pressed.connect(func():
@@ -1682,7 +1749,13 @@ func _advance_vn() -> void:
 	if vn_current_line_idx < lines.size():
 		_show_vn_line(vn_current_line_idx)
 	else:
-		_show_vn_choices()
+		var choices = vn_current_dialogue_data.get("choices", []) as Array
+		if choices.size() > 0:
+			_show_vn_choices()
+		else:
+			_close_visual_novel()
+			if vn_on_finish_callback.is_valid():
+				vn_on_finish_callback.call("")
 
 func _close_visual_novel() -> void:
 	vn_is_active = false

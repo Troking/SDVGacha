@@ -715,8 +715,8 @@ text = "── Основные характеристики ──"
 [node name="StatsList" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.96, 0.96, 0.98, 1)
-theme_override_constants/line_spacing = 10
-theme_override_font_sizes/font_size = 16
+theme_override_constants/line_spacing = 12
+theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("StyleBoxFlat_stat_box")
 text = "  🩸  Макс. HP: 100\n  ⚔  Сила атаки: 15\n  🛡  Защита: 10\n  🏃  Скорость: 7.0\n  ✨  Опыт: 0 / 50"
 

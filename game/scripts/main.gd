@@ -123,9 +123,52 @@ func _setup_splash_screen() -> void:
 			if vp:
 				var img = vp.get_texture().get_image()
 				if img:
-					img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/ellen_spawn_view.png")
-					print("[ELLEN_SPAWN] Saved ellen_spawn_view.png")
+					img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/ellen_model_showcase.png")
+					print("[ELLEN_SPAWN] Saved ellen_model_showcase.png")
 			get_tree().quit(0)
+		)
+		return
+
+	if "--test-ellen-dialogue" in OS.get_cmdline_args():
+		_on_splash_started()
+		var timer = get_tree().create_timer(0.8)
+		timer.timeout.connect(func():
+			var npc = find_child("NPCCompanion", true, false)
+			if npc and npc.has_method("_trigger_dialogue"):
+				npc._trigger_dialogue()
+			var sub_timer = get_tree().create_timer(1.0)
+			sub_timer.timeout.connect(func():
+				await RenderingServer.frame_post_draw
+				var vp = get_viewport()
+				if vp:
+					var img = vp.get_texture().get_image()
+					if img:
+						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/ellen_dialogue_showcase.png")
+						print("[ELLEN_DIALOGUE] Saved ellen_dialogue_showcase.png")
+				get_tree().quit(0)
+				OS.kill(OS.get_process_id())
+			)
+		)
+		return
+
+	if "--test-charsheet-v3" in OS.get_cmdline_args():
+		_on_splash_started()
+		var timer = get_tree().create_timer(0.8)
+		timer.timeout.connect(func():
+			if ui and ui.has_method("open_character_sheet"):
+				ui.open_character_sheet()
+			var sub_timer = get_tree().create_timer(1.0)
+			sub_timer.timeout.connect(func():
+				await RenderingServer.frame_post_draw
+				var vp = get_viewport()
+				if vp:
+					var img = vp.get_texture().get_image()
+					if img:
+						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/charsheet_v3_showcase.png")
+						print("[CHARSHEET] Saved charsheet_v3_showcase.png")
+				get_tree().quit(0)
+				OS.kill(OS.get_process_id())
+			)
 		)
 		return
 

@@ -25,10 +25,10 @@ colors = PackedColorArray(1, 0.95, 0.3, 0.95, 1, 0.55, 0.1, 0.9, 0.9, 0.18, 0.05
 background_mode = 1
 background_color = Color(0, 0, 0, 0)
 ambient_light_source = 2
-ambient_light_color = Color(0.75, 0.72, 0.82, 1)
-ambient_light_energy = 0.08
+ambient_light_color = Color(0.70, 0.72, 0.85, 1)
+ambient_light_energy = 0.10
 tonemap_mode = 3
-tonemap_exposure = 1.0
+tonemap_exposure = 0.95
 glow_enabled = false
 
 [node name="CharacterPreview3D" type="Node3D"]
@@ -45,17 +45,17 @@ current = true
 [node name="KeyLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.433013, 0.75, 0, 2, 2)
 light_color = Color(1, 0.96, 0.92, 1)
-light_energy = 0.65
+light_energy = 0.45
 
 [node name="RimLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.866025, 0.25, -0.433013, 0, 0.866025, 0.5, 0.5, -0.433013, 0.75, 0, 2, -2)
 light_color = Color(1, 0.75, 0.5, 1)
-light_energy = 0.20
+light_energy = 0.15
 
 [node name="FillLight" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.707107, 0, -0.707107, 0, 1, 0, 0.707107, 0, 0.707107, -2, 1, 0)
 light_color = Color(0.85, 0.9, 1, 1)
-light_energy = 0.15
+light_energy = 0.10
 
 [node name="CharacterRotator" type="Node3D" parent="."]
 

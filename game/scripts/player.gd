@@ -133,8 +133,15 @@ signal party_member_recruited(char_id: String)
 var party_members: Array[String] = ["hutao"]
 var active_party_index: int = 0
 var current_character_id: String = "hutao"
+var ellen_model_node: Node3D = null
 var ellen_tail_node: Node3D = null
 var current_element: String = "PYRO"
+
+# Dialogue Camera System
+var is_in_dialogue: bool = false
+var dialogue_saved_pivot_rot: Vector3 = Vector3.ZERO
+var dialogue_saved_spring_len: float = 4.5
+var dialogue_cam_tween: Tween = null
 
 func _ready() -> void:
 	add_to_group("player")
@@ -518,17 +525,24 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.is_pressed():
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			spring_arm.spring_length = clamp(spring_arm.spring_length - zoom_step, min_zoom, max_zoom)
+			get_viewport().set_input_as_handled()
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			spring_arm.spring_length = clamp(spring_arm.spring_length + zoom_step, min_zoom, max_zoom)
+			get_viewport().set_input_as_handled()
 
 func rotate_camera_touch(relative_delta: Vector2) -> void:
-	if not camera_pivot:
+	if not camera_pivot or is_in_dialogue:
 		return
 	camera_pivot.rotate_y(-relative_delta.x * mouse_sensitivity * 1.25)
 	camera_pitch = clamp(camera_pitch - relative_delta.y * mouse_sensitivity * 1.25, min_pitch, max_pitch)
 	camera_pivot.rotation.x = camera_pitch
 
 func _physics_process(delta: float) -> void:
+	if is_in_dialogue:
+		velocity = Vector3.ZERO
+		move_and_slide()
+		return
+
 	# Initial ground snap ensure
 	if not has_snapped_ground:
 		_snap_to_ground_on_start()
@@ -983,44 +997,96 @@ func switch_party_member(slot_idx: int) -> void:
 func _apply_active_character(char_id: String) -> void:
 	if char_id == "ellen":
 		current_element = "ICE"
-		# Attach Ellen Joe's Shark Tail if not yet attached
-		if not ellen_tail_node:
-			var skels = anime_model.find_children("*", "Skeleton3D", true, false)
-			if skels.size() > 0:
-				var skel = skels[0] as Skeleton3D
-				var hip_bone = "lowerbody"
-				if skel.find_bone(hip_bone) == -1:
-					hip_bone = "root"
-				if skel.find_bone(hip_bone) != -1:
-					var bone_attach = BoneAttachment3D.new()
-					bone_attach.name = "EllenTailSlot"
-					bone_attach.bone_name = hip_bone
-					skel.add_child(bone_attach)
-
-					var tail_scene = load("res://assets/models/ellen_shark_tail.glb")
-					if tail_scene:
-						var tail_inst = tail_scene.instantiate() as Node3D
-						tail_inst.name = "SharkTailVisual"
-						tail_inst.scale = Vector3(1.1, 1.1, 1.1)
-						tail_inst.position = Vector3(0.0, 0.05, -0.05)
-						tail_inst.rotation_degrees = Vector3(-15.0, 180.0, 0.0)
-						bone_attach.add_child(tail_inst)
-						ellen_tail_node = tail_inst
-
-		if ellen_tail_node:
-			ellen_tail_node.visible = true
-
-		# Equip Ellen's Shark Shears weapon
+		if anime_model:
+			anime_model.visible = false
+		if not ellen_model_node:
+			var em_scene = load("res://scenes/ellen_joe_model.tscn")
+			if em_scene:
+				ellen_model_node = em_scene.instantiate() as Node3D
+				visual_mesh.add_child(ellen_model_node)
+		if ellen_model_node:
+			ellen_model_node.visible = true
+			var players = ellen_model_node.find_children("*", "AnimationPlayer", true, false)
+			if players.size() > 0:
+				anim_player = players[0]
+				current_anim = ""
+				play_anim("Idle", 0.2)
 		_equip_character_weapon("res://assets/models/ellen_shark_shears.glb", Color(0.2, 0.85, 1.0))
 		AccessibilityManager.speak("Эллен Джо выбрана.")
 	else:
 		current_element = "PYRO"
-		if ellen_tail_node:
-			ellen_tail_node.visible = false
-
-		# Equip Hu Tao's 1H Knight Sword weapon
+		if ellen_model_node:
+			ellen_model_node.visible = false
+		if anime_model:
+			anime_model.visible = true
+			var players = anime_model.find_children("*", "AnimationPlayer", true, false)
+			if players.size() > 0:
+				anim_player = players[0]
+				current_anim = ""
+				play_anim("Idle", 0.2)
 		_equip_character_weapon("res://assets/models/sword_1h.glb", Color(1.0, 0.55, 0.1))
 		AccessibilityManager.speak("Ху Тао выбрана.")
+
+func start_dialogue_camera(target_node: Node3D) -> void:
+	is_in_dialogue = true
+	is_game_active = false
+	velocity = Vector3.ZERO
+	is_attacking = false
+	is_charging_attack = false
+	is_dashing = false
+	play_anim("Idle", 0.2)
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+	if not camera_pivot or not spring_arm or not target_node:
+		return
+
+	dialogue_saved_pivot_rot = camera_pivot.rotation
+	dialogue_saved_spring_len = spring_arm.spring_length
+
+	# Frame NPC's face in the center/upper half of screen
+	var npc_head = target_node.global_position + Vector3(0, 1.22, 0)
+	var dir_to_player = (global_position - target_node.global_position)
+	dir_to_player.y = 0.0
+	if dir_to_player.length_squared() < 0.01:
+		dir_to_player = Vector3(0, 0, 1)
+	dir_to_player = dir_to_player.normalized()
+
+	camera_pivot.top_level = true
+	camera_pivot.global_position = npc_head
+	camera_pivot.look_at(npc_head - dir_to_player, Vector3.UP)
+
+	if camera_node:
+		camera_node.h_offset = 0.0
+		camera_node.v_offset = -0.16
+
+	if dialogue_cam_tween and dialogue_cam_tween.is_valid():
+		dialogue_cam_tween.kill()
+
+	dialogue_cam_tween = create_tween()
+	dialogue_cam_tween.tween_property(spring_arm, "spring_length", 1.20, 0.40).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+func end_dialogue_camera() -> void:
+	if not is_in_dialogue:
+		return
+
+	if dialogue_cam_tween and dialogue_cam_tween.is_valid():
+		dialogue_cam_tween.kill()
+
+	if camera_node:
+		camera_node.h_offset = 0.35
+		camera_node.v_offset = 0.12
+
+	dialogue_cam_tween = create_tween().set_parallel(true)
+	dialogue_cam_tween.tween_property(spring_arm, "spring_length", dialogue_saved_spring_len, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await dialogue_cam_tween.finished
+
+	camera_pivot.top_level = false
+	camera_pivot.position = Vector3(0, 1.25, 0)
+	camera_pivot.rotation = dialogue_saved_pivot_rot
+
+	is_in_dialogue = false
+	is_game_active = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _equip_character_weapon(weapon_path: String, aura_color: Color) -> void:
 	if not arm_pivot:
@@ -1261,9 +1327,13 @@ func _spawn_water_splash_vfx(pos: Vector3) -> void:
 	t.tween_callback(p.queue_free)
 
 func _unhandled_input(event: InputEvent) -> void:
+	if is_in_dialogue:
+		return
+
 	if event is InputEventMouseButton and event.is_pressed():
-		if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED and not get_tree().paused:
-			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		if event.button_index != MOUSE_BUTTON_WHEEL_UP and event.button_index != MOUSE_BUTTON_WHEEL_DOWN:
+			if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED and not get_tree().paused:
+				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 	if event.is_action_pressed("attack"):
 		is_attack_pressed = true
