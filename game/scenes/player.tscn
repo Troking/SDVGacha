@@ -1,0 +1,95 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://assets/models/anime_heroine_rigged.glb" id="2_witch_model"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.4
+height = 1.4
+
+[sub_resource type="BoxMesh" id="BoxMesh_blade"]
+size = Vector3(0.06, 0.95, 0.18)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blade"]
+albedo_color = Color(0.9, 0.95, 1, 1)
+metallic = 0.9
+roughness = 0.15
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ember"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+
+[sub_resource type="SphereMesh" id="SphereMesh_blade_spark"]
+material = SubResource("StandardMaterial3D_ember")
+radius = 0.03
+height = 0.06
+radial_segments = 6
+rings = 3
+
+[sub_resource type="Gradient" id="Gradient_blade_flame"]
+offsets = PackedFloat32Array(0, 0.35, 0.75, 1)
+colors = PackedColorArray(1, 0.95, 0.3, 0.9, 1, 0.5, 0.1, 0.9, 0.9, 0.15, 0.05, 0.6, 0.2, 0.02, 0.02, 0)
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_atk"]
+radius = 2.4
+height = 1.8
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_cam"]
+radius = 0.3
+
+[node name="ChibiPlayer" type="CharacterBody3D" groups=["player"]]
+floor_snap_length = 0.3
+floor_max_angle = 1.0472
+script = ExtResource("1_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="AnimeModel" parent="Visual" instance=ExtResource("2_witch_model")]
+transform = Transform3D(0.9, 0, 0, 0, 0.9, 0, 0, 0, 0.9, 0, 0, 0)
+
+[node name="ArmPivot" type="Node3D" parent="Visual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 0.55, 0.1)
+
+[node name="Sword" type="MeshInstance3D" parent="Visual/ArmPivot"]
+transform = Transform3D(1, 0, 0, 0, 0.866025, 0.5, 0, -0.5, 0.866025, 0, 0.35, 0.2)
+mesh = SubResource("BoxMesh_blade")
+material_override = SubResource("StandardMaterial3D_blade")
+
+[node name="FlameAura" type="CPUParticles3D" parent="Visual/ArmPivot/Sword"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+amount = 18
+lifetime = 0.4
+mesh = SubResource("SphereMesh_blade_spark")
+emission_shape = 2
+emission_box_extents = Vector3(0.04, 0.45, 0.1)
+direction = Vector3(0, 1, 0)
+spread = 25.0
+gravity = Vector3(0, 1.5, 0)
+initial_velocity_min = 0.5
+initial_velocity_max = 1.2
+scale_amount_min = 0.8
+scale_amount_max = 1.6
+color_ramp = SubResource("Gradient_blade_flame")
+
+[node name="AttackArea" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="AttackArea"]
+shape = SubResource("CylinderShape3D_atk")
+
+[node name="CameraPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraPivot"]
+shape = SubResource("SphereShape3D_cam")
+spring_length = 4.2
+margin = 0.2
+
+[node name="Camera3D" type="Camera3D" parent="CameraPivot/SpringArm3D"]
+current = true

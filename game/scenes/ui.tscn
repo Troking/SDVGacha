@@ -1,0 +1,901 @@
+[gd_scene load_steps=20 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui_controller.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/textures/player_portrait.png" id="2_portrait"]
+[ext_resource type="PackedScene" path="res://scenes/inventory_slot.tscn" id="3_slot"]
+[ext_resource type="PackedScene" path="res://scenes/character_preview_3d.tscn" id="4_preview_3d"]
+[ext_resource type="Texture2D" path="res://assets/textures/magic_circle_pyro.png" id="5_magic_circle"]
+[ext_resource type="Texture2D" path="res://assets/textures/menu_vignette.png" id="6_vignette"]
+
+[sub_resource type="Gradient" id="Gradient_sparks2d"]
+offsets = PackedFloat32Array(0, 0.25, 0.5, 0.75, 1)
+colors = PackedColorArray(1, 0.95, 0.35, 0.85, 1, 0.55, 0.1, 0.85, 0.95, 0.2, 0.05, 0.85, 0.75, 0.1, 0.05, 0.6, 0.2, 0.05, 0.05, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_pill"]
+bg_color = Color(0.08, 0.07, 0.12, 0.75)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.35, 0.5, 0.65)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hp_bg"]
+bg_color = Color(0.08, 0.12, 0.08, 0.85)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2, 0.35, 0.22, 0.85)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hp_fill"]
+bg_color = Color(0.35, 0.88, 0.42, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 1, 0.85, 0.9)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_exp_bg"]
+bg_color = Color(0.06, 0.1, 0.18, 0.75)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_exp_fill"]
+bg_color = Color(0.2, 0.75, 1, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_genshin_card"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
+bg_color = Color(0.06, 0.05, 0.11, 0.94)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.92, 0.76, 0.38, 0.90)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+shadow_color = Color(0, 0, 0, 0.65)
+shadow_size = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lvlup"]
+bg_color = Color(0.12, 0.08, 0.18, 0.96)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(1, 0.85, 0.3, 1)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+shadow_color = Color(1, 0.7, 0.1, 0.35)
+shadow_size = 20
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hints"]
+bg_color = Color(0.06, 0.06, 0.1, 0.65)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.3, 0.35, 0.5, 0.6)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_active"]
+bg_color = Color(0.24, 0.16, 0.1, 0.85)
+border_width_left = 4
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.82, 0.35, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(1, 0.6, 0.1, 0.25)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tab_normal"]
+bg_color = Color(0.08, 0.08, 0.14, 0.55)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.4, 0.38, 0.52, 0.45)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_header_banner"]
+bg_color = Color(0.06, 0.05, 0.1, 0.78)
+border_width_bottom = 2
+border_color = Color(0.85, 0.72, 0.38, 0.75)
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stat_box"]
+content_margin_left = 18.0
+content_margin_top = 16.0
+content_margin_right = 18.0
+content_margin_bottom = 16.0
+bg_color = Color(0.08, 0.07, 0.14, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.85, 0.70, 0.35, 0.75)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_close_btn"]
+bg_color = Color(0.25, 0.08, 0.12, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1.0, 0.45, 0.4, 0.95)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0, 0, 0, 0.45)
+shadow_size = 6
+
+[sub_resource type="Gradient" id="Gradient_magic_halo"]
+colors = PackedColorArray(1, 0.55, 0.15, 0.32, 0.8, 0.25, 0.08, 0.12, 0, 0, 0, 0)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_magic_halo"]
+gradient = SubResource("Gradient_magic_halo")
+fill = 1
+fill_from = Vector2(0.5, 0.5)
+fill_to = Vector2(0.5, 0.0)
+
+[node name="UI" type="CanvasLayer"]
+script = ExtResource("1_script")
+
+[node name="PlayerHUD" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopLeftProfile" type="PanelContainer" parent="PlayerHUD"]
+layout_mode = 0
+offset_left = 28.0
+offset_top = 24.0
+offset_right = 260.0
+offset_bottom = 96.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud_pill")
+
+[node name="Margin" type="MarginContainer" parent="PlayerHUD/TopLeftProfile"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 8
+
+[node name="HBox" type="HBoxContainer" parent="PlayerHUD/TopLeftProfile/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Portrait" type="TextureRect" parent="PlayerHUD/TopLeftProfile/Margin/HBox"]
+custom_minimum_size = Vector2(52, 52)
+layout_mode = 2
+texture = ExtResource("2_portrait")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBox" type="VBoxContainer" parent="PlayerHUD/TopLeftProfile/Margin/HBox"]
+layout_mode = 2
+alignment = 1
+
+[node name="NameLabel" type="Label" parent="PlayerHUD/TopLeftProfile/Margin/HBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.85, 1)
+theme_override_font_sizes/font_size = 15
+text = "Пламенная Героиня"
+
+[node name="AttackLabel" type="Label" parent="PlayerHUD/TopLeftProfile/Margin/HBox/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.65, 0.35, 1)
+theme_override_font_sizes/font_size = 13
+text = "⚔ Сила атаки: 15"
+
+[node name="BottomCenterHUD" type="HBoxContainer" parent="PlayerHUD"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -210.0
+offset_top = -68.0
+offset_right = 210.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="LevelLabel" type="Label" parent="PlayerHUD/BottomCenterHUD"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.95, 0.8, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 17
+text = "Ур. 1"
+
+[node name="BarsVBox" type="VBoxContainer" parent="PlayerHUD/BottomCenterHUD"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_constants/separation = 3
+alignment = 1
+
+[node name="HPContainer" type="Control" parent="PlayerHUD/BottomCenterHUD/BarsVBox"]
+custom_minimum_size = Vector2(300, 18)
+layout_mode = 2
+
+[node name="HPBar" type="ProgressBar" parent="PlayerHUD/BottomCenterHUD/BarsVBox/HPContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_hp_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hp_fill")
+max_value = 100.0
+value = 100.0
+show_percentage = false
+
+[node name="HPText" type="Label" parent="PlayerHUD/BottomCenterHUD/BarsVBox/HPContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_font_sizes/font_size = 13
+text = "100 / 100"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ExpContainer" type="Control" parent="PlayerHUD/BottomCenterHUD/BarsVBox"]
+custom_minimum_size = Vector2(300, 6)
+layout_mode = 2
+
+[node name="ExpBar" type="ProgressBar" parent="PlayerHUD/BottomCenterHUD/BarsVBox/ExpContainer"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_exp_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_exp_fill")
+max_value = 50.0
+value = 0.0
+show_percentage = false
+
+[node name="ExpText" type="Label" parent="PlayerHUD/BottomCenterHUD/BarsVBox"]
+visible = false
+layout_mode = 2
+text = "0 / 50 XP"
+
+[node name="BottomRightSkills" type="HBoxContainer" parent="PlayerHUD"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -260.0
+offset_top = -100.0
+offset_right = -32.0
+offset_bottom = -28.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_constants/separation = 16
+alignment = 2
+
+[node name="SkillPanel" type="PanelContainer" parent="PlayerHUD/BottomRightSkills"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hud_pill")
+
+[node name="Margin" type="MarginContainer" parent="PlayerHUD/BottomRightSkills/SkillPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="PlayerHUD/BottomRightSkills/SkillPanel/Margin"]
+layout_mode = 2
+alignment = 1
+
+[node name="SkillBadgeLabel" type="Label" parent="PlayerHUD/BottomRightSkills/SkillPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.45, 0.1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_font_sizes/font_size = 16
+text = "✦ [E] Пламя: ГОТОВ"
+horizontal_alignment = 1
+
+[node name="SubHint" type="Label" parent="PlayerHUD/BottomRightSkills/SkillPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.75, 0.85, 0.8)
+theme_override_font_sizes/font_size = 12
+text = "ЛКМ: Удар | ПКМ: Рывок"
+horizontal_alignment = 1
+
+[node name="BottomLeftKeys" type="Label" parent="PlayerHUD"]
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 28.0
+offset_top = -52.0
+offset_right = 360.0
+offset_bottom = -24.0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.85, 0.88, 0.95, 0.85)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_font_sizes/font_size = 13
+text = "[C] Меню персонажа  |  [Пробел] Прыжок / Лазание"
+
+[node name="HintsPanel" type="PanelContainer" parent="."]
+offset_left = 28.0
+offset_top = 110.0
+offset_right = 380.0
+offset_bottom = 265.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_hints")
+
+[node name="Margin" type="MarginContainer" parent="HintsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="HintsLabel" type="Label" parent="HintsPanel/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.92, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "Подсказки"
+
+[node name="BackdropOverlay" type="ColorRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.02, 0.05, 0.92)
+
+[node name="Vignette" type="TextureRect" parent="BackdropOverlay"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("6_vignette")
+expand_mode = 1
+
+[node name="ElementalSparks2D" type="CPUParticles2D" parent="BackdropOverlay"]
+position = Vector2(960, 1100)
+amount = 65
+lifetime = 4.5
+emission_shape = 3
+emission_rect_extents = Vector2(960, 20)
+direction = Vector2(0, -1)
+spread = 25.0
+gravity = Vector2(0, -15)
+initial_velocity_min = 60.0
+initial_velocity_max = 130.0
+scale_amount_min = 2.5
+scale_amount_max = 6.0
+color_ramp = SubResource("Gradient_sparks2d")
+
+[node name="CharacterSheet" type="Control" parent="."]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="TopBar" type="HBoxContainer" parent="CharacterSheet"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_left = 48.0
+offset_top = 24.0
+offset_right = -48.0
+offset_bottom = 76.0
+grow_horizontal = 2
+
+[node name="ElementTitleHBox" type="HBoxContainer" parent="CharacterSheet/TopBar"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ElementBadge" type="Label" parent="CharacterSheet/TopBar/ElementTitleHBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.55, 0.15, 1)
+theme_override_font_sizes/font_size = 26
+text = "🔥"
+
+[node name="Title" type="Label" parent="CharacterSheet/TopBar/ElementTitleHBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.75, 1)
+theme_override_font_sizes/font_size = 22
+text = "✦  Ху Тао (Hu Tao)  ✦"
+
+[node name="RoleBadge" type="Label" parent="CharacterSheet/TopBar/ElementTitleHBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.75, 0.35, 0.85)
+theme_override_font_sizes/font_size = 14
+text = "  [ 77-я Управляющая бюро «Ваншэн» • Пиро • 5★ ]"
+
+[node name="CloseBtn" type="Button" parent="CharacterSheet/TopBar"]
+custom_minimum_size = Vector2(96, 42)
+layout_mode = 2
+size_flags_horizontal = 10
+theme_override_colors/font_color = Color(1, 0.95, 0.95, 1)
+theme_override_font_sizes/font_size = 15
+theme_override_styles/normal = SubResource("StyleBoxFlat_close_btn")
+text = "Esc  ✖"
+
+[node name="LeftNavColumn" type="VBoxContainer" parent="CharacterSheet"]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_left = 48.0
+offset_top = 120.0
+offset_right = 280.0
+offset_bottom = -60.0
+grow_vertical = 2
+theme_override_constants/separation = 14
+
+[node name="TabCharacteristicsPanel" type="PanelContainer" parent="CharacterSheet/LeftNavColumn"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tab_active")
+
+[node name="Margin" type="MarginContainer" parent="CharacterSheet/LeftNavColumn/TabCharacteristicsPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="TabCharacteristics" type="Label" parent="CharacterSheet/LeftNavColumn/TabCharacteristicsPanel/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.45, 1)
+theme_override_font_sizes/font_size = 16
+text = "◆  Характеристики"
+
+[node name="TabEquipmentPanel" type="PanelContainer" parent="CharacterSheet/LeftNavColumn"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tab_normal")
+
+[node name="Margin" type="MarginContainer" parent="CharacterSheet/LeftNavColumn/TabEquipmentPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="TabEquipment" type="Label" parent="CharacterSheet/LeftNavColumn/TabEquipmentPanel/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.85, 0.92, 0.75)
+theme_override_font_sizes/font_size = 16
+text = "◇  Снаряжение"
+
+[node name="TabInventoryPanel" type="PanelContainer" parent="CharacterSheet/LeftNavColumn"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tab_normal")
+
+[node name="Margin" type="MarginContainer" parent="CharacterSheet/LeftNavColumn/TabInventoryPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="TabInventory" type="Label" parent="CharacterSheet/LeftNavColumn/TabInventoryPanel/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.85, 0.92, 0.75)
+theme_override_font_sizes/font_size = 16
+text = "◇  Инвентарь"
+
+[node name="TabAboutPanel" type="PanelContainer" parent="CharacterSheet/LeftNavColumn"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_tab_normal")
+
+[node name="Margin" type="MarginContainer" parent="CharacterSheet/LeftNavColumn/TabAboutPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 10
+
+[node name="TabAbout" type="Label" parent="CharacterSheet/LeftNavColumn/TabAboutPanel/Margin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.85, 0.92, 0.75)
+theme_override_font_sizes/font_size = 16
+text = "◇  О персонаже"
+
+[node name="CenterShowcase" type="Control" parent="CharacterSheet"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -340.0
+offset_top = -420.0
+offset_right = 240.0
+offset_bottom = 440.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MagicAura" type="TextureRect" parent="CharacterSheet/CenterShowcase"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = -320.0
+offset_right = 320.0
+offset_bottom = 320.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = SubResource("GradientTexture2D_magic_halo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MagicCircle" type="TextureRect" parent="CharacterSheet/CenterShowcase"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -260.0
+offset_right = 260.0
+offset_bottom = 260.0
+grow_horizontal = 2
+grow_vertical = 2
+pivot_offset = Vector2(260, 260)
+mouse_filter = 2
+texture = ExtResource("5_magic_circle")
+expand_mode = 1
+stretch_mode = 5
+modulate = Color(1, 0.85, 0.45, 0.42)
+
+[node name="PreviewContainer" type="SubViewportContainer" parent="CharacterSheet/CenterShowcase"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="CharacterSheet/CenterShowcase/PreviewContainer"]
+own_world_3d = true
+transparent_bg = true
+handle_input_locally = false
+size = Vector2i(580, 860)
+render_target_update_mode = 4
+
+[node name="CharacterPreview3D" parent="CharacterSheet/CenterShowcase/PreviewContainer/SubViewport" instance=ExtResource("4_preview_3d")]
+
+[node name="DragHint" type="Label" parent="CharacterSheet/CenterShowcase"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -230.0
+offset_top = -44.0
+offset_right = 230.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(1, 0.9, 0.65, 0.85)
+theme_override_font_sizes/font_size = 13
+theme_override_styles/normal = SubResource("StyleBoxFlat_hud_pill")
+text = "✦  ЛКМ: Вращение героини   |   Колёсико: Масштаб  ✦"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="RightInfoPanel" type="PanelContainer" parent="CharacterSheet"]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -580.0
+offset_top = 96.0
+offset_right = -48.0
+offset_bottom = -48.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_genshin_card")
+
+[node name="Scroll" type="ScrollContainer" parent="CharacterSheet/RightInfoPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Margin" type="MarginContainer" parent="CharacterSheet/RightInfoPanel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 20
+
+[node name="VBox" type="VBoxContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="HeroName" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.96, 0.88, 1)
+theme_override_font_sizes/font_size = 32
+text = "Ху Тао"
+
+[node name="StarsLabel" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 22
+text = "★ ★ ★ ★ ★"
+
+[node name="LevelHBox" type="HBoxContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+
+[node name="LevelDisplay" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/LevelHBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.92, 0.78, 1)
+theme_override_font_sizes/font_size = 18
+text = "Уровень: 1 / 90"
+
+[node name="StatsTitle" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.82, 0.45, 1)
+theme_override_font_sizes/font_size = 16
+text = "── Основные характеристики ──"
+
+[node name="StatsList" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.96, 0.96, 0.98, 1)
+theme_override_constants/line_spacing = 10
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_stat_box")
+text = "  🩸  Макс. HP: 100\n  ⚔  Сила атаки: 15\n  🛡  Защита: 10\n  🏃  Скорость: 7.0\n  ✨  Опыт: 0 / 50"
+
+[node name="EquipTitle" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.35, 1)
+theme_override_font_sizes/font_size = 16
+text = "── Экипировка (Слоты) ──"
+
+[node name="EquipVBox" type="VBoxContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WeaponSlotContainer" type="HBoxContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="WeaponLabel" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox/WeaponSlotContainer"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Оружие:"
+
+[node name="WeaponSlot" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox/WeaponSlotContainer" instance=ExtResource("3_slot")]
+layout_mode = 2
+slot_type = "weapon"
+
+[node name="ShieldSlotContainer" type="HBoxContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="ShieldLabel" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox/ShieldSlotContainer"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Броня/Щит:"
+
+[node name="ShieldSlot" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox/ShieldSlotContainer" instance=ExtResource("3_slot")]
+layout_mode = 2
+slot_type = "shield"
+
+[node name="BootsSlotContainer" type="HBoxContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="BootsLabel" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox/BootsSlotContainer"]
+custom_minimum_size = Vector2(90, 0)
+layout_mode = 2
+text = "Обувь:"
+
+[node name="BootsSlot" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/EquipVBox/BootsSlotContainer" instance=ExtResource("3_slot")]
+layout_mode = 2
+slot_type = "boots"
+
+[node name="InvTitle" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "── Инвентарь (Рюкзак) ──"
+
+[node name="InvGrid" type="GridContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 4
+
+[node name="Slot0" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="Slot1" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="Slot2" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="Slot3" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="Slot4" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="Slot5" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="Slot6" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="Slot7" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/InvGrid" instance=ExtResource("3_slot")]
+layout_mode = 2
+
+[node name="LoreBox" type="PanelContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hints")
+
+[node name="LoreMargin" type="MarginContainer" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/LoreBox"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 10
+
+[node name="LoreLabel" type="Label" parent="CharacterSheet/RightInfoPanel/Scroll/Margin/VBox/LoreBox/LoreMargin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.85, 0.92, 0.8)
+theme_override_font_sizes/font_size = 13
+text = "«Юная заклинательница пламени, повелевающая огненными вихрями и согревающая весь этот мир.»"
+autowrap_mode = 2
+
+[node name="LevelUpBanner" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -80.0
+offset_right = 280.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_lvlup")
+
+[node name="Margin" type="MarginContainer" parent="LevelUpBanner"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="LevelUpBanner/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Header" type="Label" parent="LevelUpBanner/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.35, 1)
+theme_override_font_sizes/font_size = 24
+text = "✦ ПОВЫШЕНИЕ УРОВНЯ! ✦"
+horizontal_alignment = 1
+
+[node name="LvlInfo" type="Label" parent="LevelUpBanner/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.8, 0.95, 1)
+theme_override_font_sizes/font_size = 18
+text = "Уровень 2"
+horizontal_alignment = 1
+
+[node name="StatsBoost" type="Label" parent="LevelUpBanner/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.4, 1, 0.6, 1)
+theme_override_font_sizes/font_size = 15
+text = "Макс. Здоровье +20  |  Сила атаки +5"
+horizontal_alignment = 1
+
+[node name="ExpPopupLabel" type="Label" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.58
+anchor_right = 0.5
+anchor_bottom = 0.58
+offset_left = -150.0
+offset_top = -20.0
+offset_right = 150.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.9, 0.25, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.85)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_font_sizes/font_size = 22
+text = "+25 ОПЫТА ✨"
+horizontal_alignment = 1
+
+[node name="DamageFlash" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 0, 0, 0)

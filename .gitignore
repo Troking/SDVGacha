@@ -1,0 +1,26 @@
+# Godot 4 internal cache and imported artifacts
+.godot/
+
+# Build artifacts
+build/
+dist/
+
+# Large binaries exceeding GitHub 100MB limit
+tools/*.exe
+
+# Temporary scratch files
+scratch/
+test_ava_idle.mp3
+
+# Python caches and temporary files
+__pycache__/
+*.py[cod]
+*$py.class
+*.tmp
+*.log
+
+# System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store

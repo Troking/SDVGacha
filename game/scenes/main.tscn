@@ -1,0 +1,74 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/ui.tscn" id="3_ui"]
+[ext_resource type="Texture2D" path="res://assets/textures/sky_anime_clear_blue.png" id="4_sky_tex"]
+[ext_resource type="Script" path="res://scripts/asian_world_builder.gd" id="5_world_builder"]
+
+[sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_anime"]
+panorama = ExtResource("4_sky_tex")
+energy_multiplier = 1.15
+
+[sub_resource type="Sky" id="Sky_genshin"]
+sky_material = SubResource("PanoramaSkyMaterial_anime")
+
+[sub_resource type="Environment" id="Environment_genshin"]
+background_mode = 2
+sky = SubResource("Sky_genshin")
+ambient_light_source = 3
+ambient_light_sky_contribution = 0.65
+ambient_light_color = Color(0.72, 0.78, 0.92, 1)
+ambient_light_energy = 0.85
+tonemap_mode = 3
+tonemap_exposure = 1.05
+tonemap_white = 1.0
+ssao_enabled = true
+ssao_radius = 1.6
+ssao_intensity = 2.0
+ssao_power = 1.5
+ssao_detail = 0.5
+ssao_horizon = 0.12
+ssil_enabled = true
+ssil_radius = 2.8
+ssil_intensity = 0.7
+ssil_sharpness = 0.7
+glow_enabled = true
+glow_intensity = 0.25
+glow_bloom = 0.04
+glow_blend_mode = 0
+fog_enabled = true
+fog_light_color = Color(0.72, 0.84, 0.98, 1)
+fog_density = 0.0016
+fog_sky_affect = 0.15
+adjustment_enabled = true
+adjustment_brightness = 1.02
+adjustment_contrast = 1.15
+adjustment_saturation = 1.25
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_genshin")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 28, 0)
+light_color = Color(1, 0.94, 0.82, 1)
+light_energy = 1.25
+shadow_enabled = true
+shadow_bias = 0.012
+shadow_normal_bias = 1.5
+directional_shadow_mode = 2
+directional_shadow_split_1 = 0.08
+directional_shadow_split_2 = 0.22
+directional_shadow_split_3 = 0.55
+directional_shadow_blend_splits = true
+
+[node name="AsianWorld" type="Node3D" parent="."]
+script = ExtResource("5_world_builder")
+
+[node name="ChibiPlayer" parent="." instance=ExtResource("2_player")]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 18.0, 3.4, -6.0)
+
+[node name="UI" parent="." instance=ExtResource("3_ui")]
