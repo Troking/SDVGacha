@@ -46,6 +46,14 @@ jobs:
           cp -r templates/* ~/.config/godot/export_templates/4.3.stable/
           cp -r templates/* ~/.config/godot/templates/4.3.stable/
 
+      - name: Configure Explicit Template Paths
+        run: |
+          TEMPLATES_DIR="$HOME/.local/share/godot/export_templates/4.3.stable"
+          sed -i "s|custom_template/release=\"\"|custom_template/release=\"$TEMPLATES_DIR/web_nothreads_release.zip\"|g" game/export_presets.cfg
+          sed -i "s|custom_template/debug=\"\"|custom_template/debug=\"$TEMPLATES_DIR/web_nothreads_debug.zip\"|g" game/export_presets.cfg
+          echo "=== EXPORT PRESETS CONFIG ==="
+          cat game/export_presets.cfg
+
       - name: Import Assets & Export Web Game
         run: |
           cd game
