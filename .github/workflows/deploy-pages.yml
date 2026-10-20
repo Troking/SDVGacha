@@ -35,19 +35,27 @@ jobs:
           sudo chmod +x /usr/local/bin/godot
 
           mkdir -p ~/.local/share/godot/export_templates/4.3.stable
+          mkdir -p ~/.local/share/godot/templates/4.3.stable
           mkdir -p ~/.config/godot/export_templates/4.3.stable
+          mkdir -p ~/.config/godot/templates/4.3.stable
+
           wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
           unzip -q Godot_v4.3-stable_export_templates.tpz
           cp -r templates/* ~/.local/share/godot/export_templates/4.3.stable/
+          cp -r templates/* ~/.local/share/godot/templates/4.3.stable/
           cp -r templates/* ~/.config/godot/export_templates/4.3.stable/
-          ls -la ~/.local/share/godot/export_templates/4.3.stable/
+          cp -r templates/* ~/.config/godot/templates/4.3.stable/
 
-      - name: Export Web Game
+      - name: Import Assets & Export Web Game
         run: |
+          cd game
           mkdir -v -p build/web
-          mkdir -v -p game/build/web
-          godot -v --headless --path game --export-release "Web" $(pwd)/build/web/index.html
-          cp game/coi-serviceworker.js build/web/coi-serviceworker.js
+          # Step 1: Headless import pass to build .godot cache
+          godot --headless --editor --quit || true
+          
+          # Step 2: Clean export pass
+          godot -v --headless --export-release "Web" build/web/index.html
+          cp coi-serviceworker.js build/web/coi-serviceworker.js
           ls -la build/web/
 
       - name: Setup GitHub Pages
@@ -56,7 +64,7 @@ jobs:
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: game/build/web
 
       - name: Deploy to GitHub Pages
         id: deployment
