@@ -20,6 +20,7 @@ const SCENE_CRATES = preload("res://assets/models/wood_crate_barrel.glb")
 const SCENE_DOCK = preload("res://assets/models/river_dock_pier.glb")
 const SCENE_CAMPFIRE = preload("res://assets/models/campfire_brazier.glb")
 const SCENE_RUIN = preload("res://assets/models/ancient_ruin_pillar.glb")
+const JapaneseSchoolBuilder = preload("res://scripts/japanese_school_builder.gd")
 var SCENE_UNDEAD_TOMB: PackedScene = null
 var SCENE_BONE_SPIRE: PackedScene = null
 var SCENE_CYBER_TOWER: PackedScene = null
@@ -207,9 +208,13 @@ func _setup_bridge_solid_deck_collision(bridge: Node3D) -> void:
 	bridge.add_child(sb)
 
 func _build_asian_city() -> void:
-	# 1. Grand Moon Bridge spanning across the river from Sakura Valley into the City Avenue
-	var bridge = _spawn_structure(SCENE_BRIDGE, Vector3(0.0, 1.85, -6.0), Vector3(0, 90, 0))
+	# 1. Grand Moon Bridge spanning across the river from Sakura Valley into the City Avenue (Destructible)
+	var bridge = _spawn_destructible(SCENE_BRIDGE, Vector3(0.0, 1.85, -6.0), Vector3(0, 90, 0), Vector3.ONE, DestructibleProp.PropType.BRIDGE, 350, false)
 	_setup_bridge_solid_deck_collision(bridge)
+
+	# 1b. 3-Story Japanese High School (桜ヶ丘学園) with classrooms, stairs, rooftop terrace and sports courtyard
+	var school_y = get_terrain_height(30.0, -48.0)
+	JapaneseSchoolBuilder.build_school(self, Vector3(30.0, school_y, -48.0))
 
 	# 2. Grand Torii Gateway at city entrance (Destructible)
 	var torii = _spawn_destructible(SCENE_TORII, Vector3(14.0, 2.9, -6.0), Vector3(0, 90, 0), Vector3.ONE, DestructibleProp.PropType.TORII, 120)
@@ -343,13 +348,12 @@ func _build_bamboo_forest() -> void:
 
 func _build_karst_peaks() -> void:
 	var spires = [
-		{"pos": Vector3(30.0, 1.8, 34.0), "scale": Vector3(1.0, 1.0, 1.0), "rot": 10.0},
-		{"pos": Vector3(56.0, 2.4, 46.0), "scale": Vector3(1.15, 1.1, 1.15), "rot": 70.0},
-		{"pos": Vector3(34.0, 2.0, 65.0), "scale": Vector3(1.1, 1.05, 1.1), "rot": 135.0},
+		{"pos": Vector3(82.0, 2.8, 38.0), "scale": Vector3(1.0, 1.0, 1.0), "rot": 10.0},
+		{"pos": Vector3(68.0, 2.4, 46.0), "scale": Vector3(1.15, 1.1, 1.15), "rot": 70.0},
+		{"pos": Vector3(76.0, 2.5, 72.0), "scale": Vector3(1.1, 1.05, 1.1), "rot": 135.0},
 		{"pos": Vector3(66.0, 2.6, 28.0), "scale": Vector3(1.2, 1.15, 1.2), "rot": -45.0},
-		{"pos": Vector3(52.0, 2.8, 78.0), "scale": Vector3(1.25, 1.2, 1.25), "rot": 210.0},
+		{"pos": Vector3(58.0, 2.8, 85.0), "scale": Vector3(1.25, 1.2, 1.25), "rot": 210.0},
 		{"pos": Vector3(72.0, 2.8, 58.0), "scale": Vector3(1.3, 1.25, 1.3), "rot": 115.0},
-		{"pos": Vector3(20.0, 1.8, 72.0), "scale": Vector3(0.95, 0.95, 0.95), "rot": 280.0},
 	]
 	for s_data in spires:
 		var spire = _spawn_structure(SCENE_KARST, s_data["pos"], Vector3(0, s_data["rot"], 0), s_data["scale"])
@@ -1004,6 +1008,49 @@ func _setup_destructible_collision(d_prop: DestructibleProp, p_type: Destructibl
 			c_cnt.position = Vector3(0.0, 1.0, 2.2)
 			sb.add_child(c_cnt)
 
+			# Non-passable solid roof/eaves/awning
+			var c_roof = CollisionShape3D.new()
+			var b_roof = BoxShape3D.new()
+			b_roof.size = Vector3(8.4, 0.45, 7.4)
+			c_roof.shape = b_roof
+			c_roof.position = Vector3(0.0, 3.4, 0.2)
+			sb.add_child(c_roof)
+
+		DestructibleProp.PropType.PAVILION:
+			var col_base = CollisionShape3D.new()
+			var cyl_base = CylinderShape3D.new()
+			cyl_base.radius = 3.9
+			cyl_base.height = 0.65
+			col_base.shape = cyl_base
+			col_base.position = Vector3(0.0, 0.32, 0.0)
+			sb.add_child(col_base)
+
+			var col_tbl = CollisionShape3D.new()
+			var cyl_tbl = CylinderShape3D.new()
+			cyl_tbl.radius = 1.15
+			cyl_tbl.height = 1.5
+			col_tbl.shape = cyl_tbl
+			col_tbl.position = Vector3(0.0, 0.75, 0.0)
+			sb.add_child(col_tbl)
+
+			for i in range(6):
+				var ang = (2.0 * PI * i) / 6.0
+				var p_col = CollisionShape3D.new()
+				var p_cyl = CylinderShape3D.new()
+				p_cyl.radius = 0.22
+				p_cyl.height = 3.2
+				p_col.shape = p_cyl
+				p_col.position = Vector3(cos(ang) * 3.0, 2.2, sin(ang) * 3.0)
+				sb.add_child(p_col)
+
+			# Non-passable pavilion roof canopy
+			var c_pav_roof = CollisionShape3D.new()
+			var b_pav_roof = BoxShape3D.new()
+			b_pav_roof.size = Vector3(8.2, 0.6, 8.2)
+			c_pav_roof.shape = b_pav_roof
+			c_pav_roof.position = Vector3(0.0, 3.8, 0.0)
+			sb.add_child(c_pav_roof)
+
 		DestructibleProp.PropType.PAGODA:
 			var c_terr = CollisionShape3D.new()
 			var b_terr = BoxShape3D.new()
@@ -1018,6 +1065,36 @@ func _setup_destructible_collision(d_prop: DestructibleProp, p_type: Destructibl
 			c_core.shape = b_core
 			c_core.position = Vector3(0.0, 5.2, 0.0)
 			sb.add_child(c_core)
+
+			# Tier 1, 2, 3 solid roof eaves
+			var c_r1 = CollisionShape3D.new()
+			var b_r1 = BoxShape3D.new()
+			b_r1.size = Vector3(10.8, 0.5, 10.8)
+			c_r1.shape = b_r1
+			c_r1.position = Vector3(0.0, 3.8, 0.0)
+			sb.add_child(c_r1)
+
+			var c_r2 = CollisionShape3D.new()
+			var b_r2 = BoxShape3D.new()
+			b_r2.size = Vector3(9.2, 0.5, 9.2)
+			c_r2.shape = b_r2
+			c_r2.position = Vector3(0.0, 6.8, 0.0)
+			sb.add_child(c_r2)
+
+			var c_r3 = CollisionShape3D.new()
+			var b_r3 = BoxShape3D.new()
+			b_r3.size = Vector3(7.4, 0.5, 7.4)
+			c_r3.shape = b_r3
+			c_r3.position = Vector3(0.0, 9.6, 0.0)
+			sb.add_child(c_r3)
+
+		DestructibleProp.PropType.BRIDGE:
+			var c_b_deck = CollisionShape3D.new()
+			var b_b_deck = BoxShape3D.new()
+			b_b_deck.size = Vector3(4.2, 0.5, 12.0)
+			c_b_deck.shape = b_b_deck
+			c_b_deck.position = Vector3(0.0, 1.2, 0.0)
+			sb.add_child(c_b_deck)
 
 		DestructibleProp.PropType.CRATE:
 			var col_c = CollisionShape3D.new()

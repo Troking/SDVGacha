@@ -118,6 +118,16 @@ var recruit_name_label: Label = null
 var recruit_role_label: Label = null
 var recruit_portrait: TextureRect = null
 
+# Pause Menu & Controls Guide
+var pause_menu: Control = null
+var is_pause_menu_open: bool = false
+var controls_guide_modal: Control = null
+var is_controls_guide_open: bool = false
+var pause_hud_btn: Button = null
+var voice_setting_btn: Button = null
+var tts_setting_btn: Button = null
+var contrast_setting_btn: Button = null
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	AccessibilityManager.ui_visibility_toggled.connect(_on_ui_toggle)
@@ -154,6 +164,9 @@ func _ready() -> void:
 	_setup_item_inspector_card()
 	_expand_inventory_grid_slots()
 	_setup_touch_controls()
+	_setup_pause_hud_button()
+	_setup_pause_menu()
+	_setup_controls_guide_modal()
 
 	# Connect InventoryManager signals
 	InventoryManager.inventory_updated.connect(_on_inventory_updated)
@@ -1141,11 +1154,23 @@ func _input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
-	if event.is_action_pressed("open_character_sheet"):
-		toggle_character_sheet()
-	elif event is InputEventKey and event.is_pressed() and event.keycode == KEY_ESCAPE:
-		if character_sheet.visible and not is_animating_sheet:
+	var key_code = 0
+	if event is InputEventKey and event.is_pressed() and not event.is_echo():
+		key_code = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+
+	if event.is_action_pressed("open_character_sheet") or key_code == KEY_C or key_code == 0x421: # Russian 'С'
+		if not is_pause_menu_open and not is_controls_guide_open:
+			toggle_character_sheet()
+			get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_cancel") or key_code == KEY_ESCAPE:
+		if is_controls_guide_open:
+			close_controls_guide()
+			get_viewport().set_input_as_handled()
+		elif character_sheet.visible and not is_animating_sheet:
 			close_character_sheet()
+			get_viewport().set_input_as_handled()
+		elif not vn_is_active:
+			toggle_pause_menu()
 			get_viewport().set_input_as_handled()
 
 func update_stats(hp: int, max_hp: int, exp_val: int, exp_to_next: int, level: int, attack_val: int) -> void:
@@ -1614,6 +1639,9 @@ func start_visual_novel_dialogue(speaker_info: Dictionary, dialogue_data: Dictio
 	vn_current_line_idx = 0
 	vn_is_active = true
 
+	# Play heroine cheerful Japanese greeting reaction
+	SoundSynth.play_heroine_dialogue_start()
+
 	# Set speaker identity
 	vn_name_label.text = speaker_info.get("name", "Эллен Джо")
 	vn_title_label.text = "[ " + speaker_info.get("title", "") + " ]"
@@ -1718,6 +1746,12 @@ func _on_choice_selected(choice_data: Dictionary) -> void:
 	vn_text_label.text = ""
 
 	var action = choice_data.get("action", "")
+	var txt = choice_data.get("text", "")
+	if action == "recruit" or "отряд" in txt:
+		SoundSynth.play_heroine_choice_recruit()
+	elif action == "battle" or "битв" in txt or "бой" in txt:
+		SoundSynth.play_heroine_choice_battle()
+
 	vn_current_dialogue_data["pending_action"] = action
 
 func _on_vn_gui_input(event: InputEvent) -> void:
@@ -1871,3 +1905,481 @@ func show_party_recruit_banner(c_name: String, c_role: String, portrait_p: Strin
 	fade.tween_property(recruit_banner, "modulate:a", 0.0, 0.35)
 	await fade.finished
 	recruit_banner.visible = false
+
+# ==================== PAUSE MENU & CONTROLS GUIDE ====================
+
+func _setup_pause_hud_button() -> void:
+	if not player_hud:
+		return
+	pause_hud_btn = Button.new()
+	pause_hud_btn.name = "PauseHudBtn"
+	pause_hud_btn.text = "⏸ Меню [Esc]"
+	pause_hud_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	pause_hud_btn.offset_left = 445.0
+	pause_hud_btn.offset_top = 26.0
+	pause_hud_btn.offset_right = 590.0
+	pause_hud_btn.offset_bottom = 64.0
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0.10, 0.12, 0.18, 0.82)
+	style.border_color = Color(0.35, 0.85, 1.0, 0.85)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_right = 8
+	style.corner_radius_bottom_left = 8
+	pause_hud_btn.add_theme_stylebox_override("normal", style)
+	pause_hud_btn.add_theme_stylebox_override("hover", style)
+	pause_hud_btn.add_theme_stylebox_override("pressed", style)
+	pause_hud_btn.add_theme_color_override("font_color", Color(0.9, 0.95, 1.0, 1.0))
+	pause_hud_btn.add_theme_font_size_override("font_size", 14)
+
+	pause_hud_btn.pressed.connect(func():
+		SoundSynth.play_ui_click(self)
+		toggle_pause_menu()
+	)
+	player_hud.add_child(pause_hud_btn)
+
+func _setup_pause_menu() -> void:
+	pause_menu = Control.new()
+	pause_menu.name = "PauseMenu"
+	pause_menu.process_mode = Node.PROCESS_MODE_ALWAYS
+	pause_menu.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pause_menu.visible = false
+
+	# Dark dimming backdrop
+	var bg = ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.02, 0.03, 0.07, 0.84)
+	pause_menu.add_child(bg)
+
+	# Main Card Container
+	var card = PanelContainer.new()
+	card.name = "Card"
+	card.custom_minimum_size = Vector2(480, 560)
+	card.set_anchors_preset(Control.PRESET_CENTER)
+	card.offset_left = -240.0
+	card.offset_top = -280.0
+	card.offset_right = 240.0
+	card.offset_bottom = 280.0
+
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.10, 0.16, 0.96)
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(0.35, 0.85, 1.0, 0.9)
+	sb.corner_radius_top_left = 16
+	sb.corner_radius_top_right = 16
+	sb.corner_radius_bottom_right = 16
+	sb.corner_radius_bottom_left = 16
+	sb.shadow_color = Color(0, 0, 0, 0.6)
+	sb.shadow_size = 18
+	card.add_theme_stylebox_override("panel", sb)
+	pause_menu.add_child(card)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_top", 24)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_bottom", 24)
+	card.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	margin.add_child(vbox)
+
+	# Header Title
+	var title = Label.new()
+	title.text = "⏸  ПАУЗА И НАСТРОЙКИ"
+	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.40))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var sub = Label.new()
+	sub.text = "SDVGacha  •  Zenless & Genshin Chibi Action"
+	sub.add_theme_font_size_override("font_size", 12)
+	sub.add_theme_color_override("font_color", Color(0.65, 0.75, 0.90, 0.7))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(sub)
+
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+
+	# Navigation Buttons
+	var btn_resume = _create_pause_action_btn("▶  Продолжить игру (Resume)", Color(0.2, 0.75, 0.4, 0.95))
+	btn_resume.pressed.connect(func():
+		SoundSynth.play_ui_click(self)
+		close_pause_menu()
+	)
+	vbox.add_child(btn_resume)
+
+	var btn_guide = _create_pause_action_btn("🎮  Руководство по управлению (Guide)", Color(0.25, 0.65, 0.95, 0.95))
+	btn_guide.pressed.connect(func():
+		SoundSynth.play_ui_click(self)
+		open_controls_guide()
+	)
+	vbox.add_child(btn_guide)
+
+	var btn_charsheet = _create_pause_action_btn("📜  Персонаж & Инвентарь (C)", Color(0.85, 0.55, 0.25, 0.95))
+	btn_charsheet.pressed.connect(func():
+		SoundSynth.play_ui_click(self)
+		close_pause_menu()
+		open_character_sheet()
+	)
+	vbox.add_child(btn_charsheet)
+
+	var btn_spawn = _create_pause_action_btn("📍  Возврат на спавн (Анти-застревание)", Color(0.75, 0.35, 0.45, 0.95))
+	btn_spawn.pressed.connect(func():
+		SoundSynth.play_ui_click(self)
+		close_pause_menu()
+		_teleport_player_to_spawn()
+	)
+	vbox.add_child(btn_spawn)
+
+	var sep2 = HSeparator.new()
+	vbox.add_child(sep2)
+
+	# ==================== AUDIO SLIDERS ====================
+	# 1. Master Volume
+	var master_lbl = Label.new()
+	master_lbl.text = "🔊 Общая громкость: 100%"
+	master_lbl.add_theme_font_size_override("font_size", 13)
+	master_lbl.add_theme_color_override("font_color", Color(0.9, 0.92, 0.98))
+	vbox.add_child(master_lbl)
+
+	var master_slider = HSlider.new()
+	master_slider.min_value = 0
+	master_slider.max_value = 100
+	master_slider.value = 100
+	master_slider.value_changed.connect(func(val):
+		master_lbl.text = "🔊 Общая громкость: " + str(int(val)) + "%"
+		_set_master_volume(val / 100.0)
+	)
+	vbox.add_child(master_slider)
+
+	# 2. BGM Volume
+	var bgm_lbl = Label.new()
+	bgm_lbl.text = "🎵 Музыка (BGM): 85%"
+	bgm_lbl.add_theme_font_size_override("font_size", 13)
+	bgm_lbl.add_theme_color_override("font_color", Color(0.9, 0.92, 0.98))
+	vbox.add_child(bgm_lbl)
+
+	var bgm_slider = HSlider.new()
+	bgm_slider.min_value = 0
+	bgm_slider.max_value = 100
+	bgm_slider.value = 85
+	bgm_slider.value_changed.connect(func(val):
+		bgm_lbl.text = "🎵 Музыка (BGM): " + str(int(val)) + "%"
+		_set_music_volume(val / 100.0)
+	)
+	vbox.add_child(bgm_slider)
+
+	# 3. SFX Volume
+	var sfx_lbl = Label.new()
+	sfx_lbl.text = "⚔ Звуковые эффекты (SFX): 100%"
+	sfx_lbl.add_theme_font_size_override("font_size", 13)
+	sfx_lbl.add_theme_color_override("font_color", Color(0.9, 0.92, 0.98))
+	vbox.add_child(sfx_lbl)
+
+	var sfx_slider = HSlider.new()
+	sfx_slider.min_value = 0
+	sfx_slider.max_value = 100
+	sfx_slider.value = 100
+	sfx_slider.value_changed.connect(func(val):
+		sfx_lbl.text = "⚔ Звуковые эффекты (SFX): " + str(int(val)) + "%"
+		_set_sfx_volume(val / 100.0)
+	)
+	vbox.add_child(sfx_slider)
+
+	# ==================== TOGGLES ROW ====================
+	var toggles_box = HBoxContainer.new()
+	toggles_box.add_theme_constant_override("separation", 8)
+	toggles_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(toggles_box)
+
+	voice_setting_btn = Button.new()
+	voice_setting_btn.text = "🎙 Сэйю (JA)"
+	voice_setting_btn.custom_minimum_size = Vector2(130, 36)
+	voice_setting_btn.pressed.connect(func():
+		var mode_str = SoundSynth.cycle_voice_mode()
+		voice_setting_btn.text = "🎙 " + mode_str
+		SoundSynth.play_ui_click(self)
+	)
+	toggles_box.add_child(voice_setting_btn)
+
+	tts_setting_btn = Button.new()
+	tts_setting_btn.text = "📢 Диктор: ВКЛ" if AccessibilityManager.tts_enabled else "📢 Диктор: ВЫКЛ"
+	tts_setting_btn.custom_minimum_size = Vector2(130, 36)
+	tts_setting_btn.pressed.connect(func():
+		AccessibilityManager.toggle_tts()
+		tts_setting_btn.text = "📢 Диктор: ВКЛ" if AccessibilityManager.tts_enabled else "📢 Диктор: ВЫКЛ"
+		SoundSynth.play_ui_click(self)
+	)
+	toggles_box.add_child(tts_setting_btn)
+
+	contrast_setting_btn = Button.new()
+	contrast_setting_btn.text = "👁 Контраст: " + ("ВКЛ" if AccessibilityManager.high_contrast else "ВЫКЛ")
+	contrast_setting_btn.custom_minimum_size = Vector2(130, 36)
+	contrast_setting_btn.pressed.connect(func():
+		AccessibilityManager.toggle_high_contrast()
+		contrast_setting_btn.text = "👁 Контраст: " + ("ВКЛ" if AccessibilityManager.high_contrast else "ВЫКЛ")
+		SoundSynth.play_ui_click(self)
+	)
+	toggles_box.add_child(contrast_setting_btn)
+
+	add_child(pause_menu)
+
+func _create_pause_action_btn(text_content: String, border_col: Color) -> Button:
+	var btn = Button.new()
+	btn.text = text_content
+	btn.custom_minimum_size = Vector2(0, 42)
+	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.15, 0.22, 0.90)
+	sb.border_width_left = 2
+	sb.border_width_top = 1
+	sb.border_width_right = 1
+	sb.border_width_bottom = 1
+	sb.border_color = border_col
+	sb.corner_radius_top_left = 8
+	sb.corner_radius_top_right = 8
+	sb.corner_radius_bottom_right = 8
+	sb.corner_radius_bottom_left = 8
+	btn.add_theme_stylebox_override("normal", sb)
+
+	var sb_h = sb.duplicate() as StyleBoxFlat
+	sb_h.bg_color = Color(0.20, 0.25, 0.36, 0.95)
+	sb_h.border_color = Color(1.0, 1.0, 1.0, 0.9)
+	btn.add_theme_stylebox_override("hover", sb_h)
+	btn.add_theme_stylebox_override("pressed", sb_h)
+	btn.add_theme_font_size_override("font_size", 14)
+	btn.add_theme_color_override("font_color", Color(0.96, 0.97, 1.0))
+	return btn
+
+func toggle_pause_menu() -> void:
+	if is_pause_menu_open:
+		close_pause_menu()
+	else:
+		open_pause_menu()
+
+func open_pause_menu() -> void:
+	if not pause_menu or is_pause_menu_open or vn_is_active:
+		return
+	is_pause_menu_open = true
+	pause_menu.visible = true
+	get_tree().paused = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+	pause_menu.modulate.a = 0.0
+	var tw = create_tween()
+	tw.tween_property(pause_menu, "modulate:a", 1.0, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+func close_pause_menu() -> void:
+	if not pause_menu or not is_pause_menu_open:
+		return
+	is_pause_menu_open = false
+	var tw = create_tween()
+	tw.tween_property(pause_menu, "modulate:a", 0.0, 0.15)
+	await tw.finished
+	pause_menu.visible = false
+	get_tree().paused = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+func _teleport_player_to_spawn() -> void:
+	var p = get_tree().get_first_node_in_group("player")
+	if p:
+		p.global_position = Vector3(18.0, AsianWorldBuilder.get_terrain_height(18.0, -6.0) + 0.2, -6.0)
+		p.velocity = Vector3.ZERO
+		AccessibilityManager.speak("Телепортация на точку появления")
+
+func _set_master_volume(val: float) -> void:
+	var idx = AudioServer.get_bus_index("Master")
+	if idx >= 0:
+		AudioServer.set_bus_volume_db(idx, -80.0 if val <= 0.01 else linear_to_db(val))
+
+func _set_music_volume(val: float) -> void:
+	var idx = AudioServer.get_bus_index("Music")
+	if idx >= 0:
+		AudioServer.set_bus_volume_db(idx, -80.0 if val <= 0.01 else linear_to_db(val))
+	SoundSynth.set_music_volume_scale(val)
+
+func _set_sfx_volume(val: float) -> void:
+	var idx = AudioServer.get_bus_index("SFX")
+	if idx >= 0:
+		AudioServer.set_bus_volume_db(idx, -80.0 if val <= 0.01 else linear_to_db(val))
+	SoundSynth.set_sfx_volume_scale(val)
+
+# ==================== CONTROLS GUIDE MODAL ====================
+
+func _setup_controls_guide_modal() -> void:
+	controls_guide_modal = Control.new()
+	controls_guide_modal.name = "ControlsGuideModal"
+	controls_guide_modal.process_mode = Node.PROCESS_MODE_ALWAYS
+	controls_guide_modal.set_anchors_preset(Control.PRESET_FULL_RECT)
+	controls_guide_modal.visible = false
+
+	var bg = ColorRect.new()
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.color = Color(0.02, 0.03, 0.07, 0.88)
+	controls_guide_modal.add_child(bg)
+
+	var card = PanelContainer.new()
+	card.name = "GuideCard"
+	card.custom_minimum_size = Vector2(680, 560)
+	card.set_anchors_preset(Control.PRESET_CENTER)
+	card.offset_left = -340.0
+	card.offset_top = -280.0
+	card.offset_right = 340.0
+	card.offset_bottom = 280.0
+
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.09, 0.15, 0.98)
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.border_color = Color(0.35, 0.85, 1.0, 0.95)
+	sb.corner_radius_top_left = 16
+	sb.corner_radius_top_right = 16
+	sb.corner_radius_bottom_right = 16
+	sb.corner_radius_bottom_left = 16
+	sb.shadow_color = Color(0, 0, 0, 0.65)
+	sb.shadow_size = 20
+	card.add_theme_stylebox_override("panel", sb)
+	controls_guide_modal.add_child(card)
+
+	var margin = MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 26)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_right", 26)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	card.add_child(margin)
+
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	margin.add_child(vbox)
+
+	# Header HBox
+	var header = HBoxContainer.new()
+	vbox.add_child(header)
+
+	var title = Label.new()
+	title.text = "🎮  РУКОВОДСТВО ПО УПРАВЛЕНИЮ"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.40))
+	header.add_child(title)
+
+	var btn_close = Button.new()
+	btn_close.text = "✕ Закрыть"
+	btn_close.custom_minimum_size = Vector2(96, 32)
+	btn_close.pressed.connect(func():
+		SoundSynth.play_ui_click(self)
+		close_controls_guide()
+	)
+	header.add_child(btn_close)
+
+	var sep = HSeparator.new()
+	vbox.add_child(sep)
+
+	# Scrollable Body
+	var scroll = ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vbox.add_child(scroll)
+
+	var content_vbox = VBoxContainer.new()
+	content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_vbox.add_theme_constant_override("separation", 14)
+	scroll.add_child(content_vbox)
+
+	_add_guide_section(content_vbox, "🏃 ПЕРЕДВИЖЕНИЕ", [
+		"W / A / S / D (или Ц / Ф / Ы / В) — Бег в направлении камеры",
+		"Мышь — Вращение камеры  |  Колёсико мыши — Масштаб (Zoom)",
+		"Пробел — Прыжок  |  Повторный Пробел в воздухе — Планер",
+		"Shift / ПКМ — Быстрый рывок и уклонение с неуязвимостью"
+	])
+
+	_add_guide_section(content_vbox, "⚔ БИТВА И НАВЫКИ", [
+		"ЛКМ — Серия из 4 ударов мечом / ножницами",
+		"Зажатие ЛКМ (0.4с) — Заряженный вихревой выпад сквозь врагов",
+		"E (или У) — Стихийный навык: Pyro Vortex / Shark Sweep",
+		"1 / 2 — Мгновенная смена бойца (1: Ху Тао  |  2: Эллен Джо)"
+	])
+
+	_add_guide_section(content_vbox, "🎒 ИНТЕРФЕЙС И ДЕЙСТВИЯ", [
+		"F (или А) — Разговор с NPC (Эллен Джо), открытие сундуков",
+		"C (или С) — Окно характеристик, экипировка и инвентарь",
+		"Q / Z (или Й / Я) — Быстрое исцеляющее зелье (+45 HP)",
+		"U / F8 — Анти-застревание: спасение на твердую почву",
+		"V — Быстрое переключение языка озвучки (Японский / Русский)",
+		"Esc — Меню паузы, настройки звука и возврат на спавн"
+	])
+
+	_add_guide_section(content_vbox, "📱 СЕНСОРНОЕ УПРАВЛЕНИЕ (ДЛЯ МОБИЛЬНЫХ)", [
+		"Левая часть экрана — Виртуальный аналоговый стик для бега",
+		"Правая часть экрана — Вращение камеры и кнопки действий (Атака, Прыжок, Рывок, Навык)",
+		"Кнопка «📱 Сенсор» вверху слева — Включение/выключение наэкранного управления"
+	])
+
+	add_child(controls_guide_modal)
+
+func _add_guide_section(parent: VBoxContainer, section_title: String, items: Array[String]) -> void:
+	var sec_panel = PanelContainer.new()
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.10, 0.13, 0.20, 0.75)
+	sb.border_width_left = 3
+	sb.border_color = Color(0.35, 0.85, 1.0, 0.9)
+	sb.corner_radius_top_left = 4
+	sb.corner_radius_bottom_left = 4
+	sec_panel.add_theme_stylebox_override("panel", sb)
+	parent.add_child(sec_panel)
+
+	var m = MarginContainer.new()
+	m.add_theme_constant_override("margin_left", 14)
+	m.add_theme_constant_override("margin_top", 10)
+	m.add_theme_constant_override("margin_right", 14)
+	m.add_theme_constant_override("margin_bottom", 10)
+	sec_panel.add_child(m)
+
+	var vb = VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	m.add_child(vb)
+
+	var st = Label.new()
+	st.text = section_title
+	st.add_theme_font_size_override("font_size", 14)
+	st.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	vb.add_child(st)
+
+	for item in items:
+		var lbl = Label.new()
+		lbl.text = "• " + item
+		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98))
+		lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vb.add_child(lbl)
+
+func open_controls_guide() -> void:
+	if not controls_guide_modal:
+		return
+	is_controls_guide_open = true
+	controls_guide_modal.visible = true
+	controls_guide_modal.modulate.a = 0.0
+	var tw = create_tween()
+	tw.tween_property(controls_guide_modal, "modulate:a", 1.0, 0.16)
+
+func close_controls_guide() -> void:
+	if not controls_guide_modal:
+		return
+	is_controls_guide_open = false
+	var tw = create_tween()
+	tw.tween_property(controls_guide_modal, "modulate:a", 0.0, 0.14)
+	await tw.finished
+	controls_guide_modal.visible = false

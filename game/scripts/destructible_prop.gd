@@ -15,7 +15,8 @@ enum PropType {
 	TORII,     # Torii gates: fractures into red lacquered timber beams and black roof caps
 	PAGODA,    # Pagodas: multi-chunk dramatic collapse of pagoda tiers and curved tiles
 	LANTERN,   # Stone lanterns: granite shatter and bouncing stone blocks
-	CRATE      # Cargo crates & sake barrels: explodes into cedar wood planks and loot
+	CRATE,     # Cargo crates & sake barrels: explodes into cedar wood planks and loot
+	BRIDGE     # Arched Moon Bridge: fractures into timber beams, stone piers, collapses into river
 }
 
 @export var prop_type: PropType = PropType.TREE
@@ -52,11 +53,18 @@ func take_damage(amount: int, is_pyro: bool = false, is_heavy: bool = false, hit
 		if diff.length_squared() > 0.001:
 			hit_dir = diff.normalized()
 
-	# Audio feedback
-	if prop_type == PropType.LANTERN:
-		SoundSynth.play_stone_crumble(self)
-	else:
-		SoundSynth.play_wood_chop(self)
+	# Audio feedback based on prop material
+	match prop_type:
+		PropType.LANTERN:
+			SoundSynth.play_material_hit(self, "stone")
+		PropType.TORII:
+			SoundSynth.play_material_hit(self, "metal")
+		PropType.SHOP, PropType.PAVILION, PropType.PAGODA:
+			SoundSynth.play_material_hit(self, "building")
+		PropType.BRIDGE:
+			SoundSynth.play_material_hit(self, "wood")
+		_:
+			SoundSynth.play_material_hit(self, "wood")
 
 	# Hit reaction: wobble tilt & impact particles
 	_trigger_hit_wobble(hit_dir, is_heavy)
@@ -452,6 +460,9 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 		PropType.PAGODA:
 			chunk_count = 22
 			w = 3.5; h = 7.5; d = 3.5
+		PropType.BRIDGE:
+			chunk_count = 24
+			w = 4.0; h = 2.4; d = 6.0
 
 	# Spawn Dynamic Physics RigidBody3D Debris Chunks
 	for i in range(chunk_count):

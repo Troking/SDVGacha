@@ -172,6 +172,73 @@ func _setup_splash_screen() -> void:
 		)
 		return
 
+	if "--test-pause-menu" in OS.get_cmdline_args():
+		_on_splash_started()
+		var timer = get_tree().create_timer(0.8)
+		timer.timeout.connect(func():
+			if ui and ui.has_method("open_pause_menu"):
+				ui.open_pause_menu()
+			var sub_timer = get_tree().create_timer(1.0)
+			sub_timer.timeout.connect(func():
+				await RenderingServer.frame_post_draw
+				var vp = get_viewport()
+				if vp:
+					var img = vp.get_texture().get_image()
+					if img:
+						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/pause_menu_preview.png")
+						print("[PAUSE_MENU] Saved pause_menu_preview.png")
+				get_tree().quit(0)
+				OS.kill(OS.get_process_id())
+			)
+		)
+		return
+
+	if "--test-controls-guide" in OS.get_cmdline_args():
+		_on_splash_started()
+		var timer = get_tree().create_timer(0.8)
+		timer.timeout.connect(func():
+			if ui and ui.has_method("open_controls_guide"):
+				ui.open_controls_guide()
+			var sub_timer = get_tree().create_timer(1.0)
+			sub_timer.timeout.connect(func():
+				await RenderingServer.frame_post_draw
+				var vp = get_viewport()
+				if vp:
+					var img = vp.get_texture().get_image()
+					if img:
+						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/controls_guide_preview.png")
+						print("[CONTROLS_GUIDE] Saved controls_guide_preview.png")
+				get_tree().quit(0)
+				OS.kill(OS.get_process_id())
+			)
+		)
+		return
+
+	if "--test-school" in OS.get_cmdline_args():
+		_on_splash_started()
+		var timer = get_tree().create_timer(0.4)
+		timer.timeout.connect(func():
+			if player:
+				player.global_position = Vector3(30.0, AsianWorldBuilder.get_terrain_height(30.0, -34.0) + 0.1, -34.0)
+				if player.camera_pivot:
+					player.camera_pivot.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+				if player.spring_arm:
+					player.spring_arm.spring_length = 7.0
+			var sub_timer = get_tree().create_timer(0.8)
+			sub_timer.timeout.connect(func():
+				await RenderingServer.frame_post_draw
+				var vp = get_viewport()
+				if vp:
+					var img = vp.get_texture().get_image()
+					if img:
+						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/school_showcase.png")
+						print("[SCHOOL] Saved school_showcase.png")
+				get_tree().quit(0)
+				OS.kill(OS.get_process_id())
+			)
+		)
+		return
+
 	if "--test-water" in OS.get_cmdline_args():
 		_on_splash_started()
 		var timer = get_tree().create_timer(0.4)

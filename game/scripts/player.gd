@@ -142,6 +142,7 @@ var is_in_dialogue: bool = false
 var dialogue_saved_pivot_rot: Vector3 = Vector3.ZERO
 var dialogue_saved_spring_len: float = 4.5
 var dialogue_cam_tween: Tween = null
+var biome_check_timer: float = 0.0
 
 func _ready() -> void:
 	add_to_group("player")
@@ -278,6 +279,23 @@ func _update_weapon_visibility(delta: float) -> void:
 	weapon_dissolve_timer -= delta
 	if weapon_dissolve_timer <= 0.0:
 		dissolve_weapon()
+
+func _update_current_biome(delta: float) -> void:
+	biome_check_timer += delta
+	if biome_check_timer < 0.35:
+		return
+	biome_check_timer = 0.0
+
+	var pos = global_position
+	var biome = "asian"
+	if pos.z < -65.0 and pos.x < -20.0:
+		biome = "blight"
+	elif pos.z > 65.0 and pos.x > 15.0:
+		biome = "cyber"
+	elif pos.x >= 10.0 and pos.x <= 50.0 and pos.z >= -60.0 and pos.z <= -20.0:
+		biome = "school"
+
+	SoundSynth.update_biome_bgm(biome)
 
 func play_anim(anim_name: String, blend: float = 0.15) -> void:
 	if not anim_player or not anim_player.has_animation(anim_name):
@@ -501,18 +519,21 @@ func _input(event: InputEvent) -> void:
 		else:
 			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-	if event is InputEventKey and event.is_pressed() and not event.is_echo() and event.keycode == KEY_V:
+	var key_code = 0
+	if event is InputEventKey and event.is_pressed() and not event.is_echo():
+		key_code = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+
+	if key_code == KEY_V or key_code == 0x41C: # English V or Russian М
 		var mode_name = SoundSynth.cycle_voice_mode()
 		SoundSynth.play_voice_finisher(self)
 		AccessibilityManager.speak("Озвучка: " + mode_name)
 
 	# Squad / Party Switching (Hotkeys 1-9)
-	if event is InputEventKey and event.is_pressed() and not event.is_echo():
-		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
-			var slot_idx = event.keycode - KEY_1
-			switch_party_member(slot_idx)
-		elif event.keycode == KEY_U or event.keycode == KEY_F8:
-			_rescue_from_void()
+	if key_code >= KEY_1 and key_code <= KEY_9:
+		var slot_idx = key_code - KEY_1
+		switch_party_member(slot_idx)
+	elif key_code == KEY_U or key_code == KEY_F8 or key_code == 0x413: # Russian Г
+		_rescue_from_void()
 
 	if event is InputEventMouseMotion and Input.get_mouse_mode() == Input.MOUSE_MODE_CAPTURED:
 		camera_pivot.rotate_y(-event.relative.x * mouse_sensitivity)
@@ -556,6 +577,9 @@ func _physics_process(delta: float) -> void:
 	if not is_swimming and global_position.y < ground_y - 0.75:
 		global_position.y = ground_y + 0.25
 		velocity.y = maxf(velocity.y, 0.0)
+
+	# Dynamic Multi-Biome BGM updater
+	_update_current_biome(delta)
 
 	# Attack stuck safety watchdog (prevents animation/await from ever locking player)
 	if is_attacking:
@@ -1335,6 +1359,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED and not get_tree().paused:
 				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
+	var key_code = 0
+	if event is InputEventKey and event.is_pressed() and not event.is_echo():
+		key_code = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+
 	if event.is_action_pressed("attack"):
 		is_attack_pressed = true
 		attack_press_time = 0.0
@@ -1349,11 +1377,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		has_unleashed_charged_in_press = false
 	elif event.is_action_pressed("dash"):
 		perform_dash()
-	elif event.is_action_pressed("elemental_skill") or (event is InputEventKey and event.is_pressed() and event.keycode == KEY_E):
+	elif event.is_action_pressed("elemental_skill") or key_code == KEY_E or key_code == 0x443: # Russian 'У'
 		perform_elemental_skill()
 	elif event.is_action_pressed("target_lock"):
 		toggle_target_lock()
-	elif event.is_action_pressed("use_potion") or (event is InputEventKey and event.is_pressed() and (event.keycode == KEY_Q or event.keycode == KEY_Z)):
+	elif event.is_action_pressed("use_potion") or key_code == KEY_Q or key_code == KEY_Z or key_code == 0x419 or key_code == 0x44F: # Russian 'Й' / 'Я'
 		InventoryManager.use_quick_potion()
 
 func perform_elemental_skill() -> void:
@@ -1744,15 +1772,25 @@ func perform_attack() -> void:
 	var dmg = int(attack_power * current_combo["mult"])
 
 	# Sound & Voice
-	if combo_stage == 3:
-		# 4th hit: Heavy finisher boom & roar + signature shout
-		SoundSynth.play_sword_heavy(self)
-		if randf() < 0.50:
-			SoundSynth.play_voice_finisher(self)
+	if current_character_id == "ellen":
+		if combo_stage == 3:
+			SoundSynth.play_sword_heavy(self)
+			if randf() < 0.65:
+				SoundSynth.play_voice_ellen_attack()
+		else:
+			SoundSynth.play_sword_combo(self, combo_stage)
+			if randf() < 0.35:
+				SoundSynth.play_voice_ellen_attack()
 	else:
-		SoundSynth.play_sword_combo(self, combo_stage)
-		if randf() < 0.22:
-			SoundSynth.play_voice_attack(self)
+		if combo_stage == 3:
+			# 4th hit: Heavy finisher boom & roar + signature shout
+			SoundSynth.play_sword_heavy(self)
+			if randf() < 0.50:
+				SoundSynth.play_voice_finisher(self)
+		else:
+			SoundSynth.play_sword_combo(self, combo_stage)
+			if randf() < 0.22:
+				SoundSynth.play_voice_attack(self)
 
 	# Play Animation
 	play_anim(current_combo["anim"], 0.04)
@@ -1782,6 +1820,7 @@ func perform_attack() -> void:
 	var bodies = attack_area.get_overlapping_bodies()
 	var hit_any = false
 	var hit_destructibles: Array[DestructibleProp] = []
+	var hit_material = "flesh"
 	for b in bodies:
 		if b.is_in_group("enemies") and b.has_method("take_damage"):
 			b.take_damage(dmg)
@@ -1796,6 +1835,20 @@ func perform_attack() -> void:
 				var push_dir = (b.global_position - global_position).normalized()
 				push_dir.y = 0.25
 				b.velocity += push_dir * 6.5
+			# Determine enemy material
+			if "monster_type" in b:
+				if b.monster_type == ChibiEnemy.MonsterType.SLIME:
+					hit_material = "slime"
+				elif b.monster_type == ChibiEnemy.MonsterType.SKELETON:
+					hit_material = "bone"
+				else:
+					hit_material = "flesh"
+			elif "slime" in b.name.to_lower():
+				hit_material = "slime"
+			elif "skel" in b.name.to_lower():
+				hit_material = "bone"
+			elif "cyber" in b.name.to_lower() or "mech" in b.name.to_lower():
+				hit_material = "cyber"
 		else:
 			var d_prop = _find_destructible(b)
 			if d_prop and not d_prop.is_destroyed and not d_prop in hit_destructibles:
@@ -1803,9 +1856,15 @@ func perform_attack() -> void:
 				d_prop.take_damage(dmg, false, combo_stage == 3, global_position)
 				hit_any = true
 				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.2 if combo_stage == 3 else 0.9)
+				if d_prop.prop_type == DestructibleProp.PropType.LANTERN:
+					hit_material = "stone"
+				elif d_prop.prop_type in [DestructibleProp.PropType.SHOP, DestructibleProp.PropType.PAVILION, DestructibleProp.PropType.PAGODA, DestructibleProp.PropType.BRIDGE]:
+					hit_material = "building"
+				else:
+					hit_material = "wood"
 
 	if hit_any:
-		SoundSynth.play_hit(self)
+		SoundSynth.play_material_hit(self, hit_material)
 		var shake_str = 0.10 if combo_stage == 3 else 0.05
 		var stop_dur = 0.05 if combo_stage == 3 else 0.03
 		_apply_hit_impact(stop_dur, shake_str)
@@ -2105,7 +2164,7 @@ func take_damage(dmg: int) -> void:
 		return
 
 	current_hp = max(0, current_hp - dmg)
-	SoundSynth.play_hit(self)
+	SoundSynth.play_material_hit(self, "flesh")
 	SoundSynth.play_voice_hurt(self)
 
 	# Floating damage popup over player

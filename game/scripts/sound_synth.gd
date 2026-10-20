@@ -50,6 +50,8 @@ var ambient_player: AudioStreamPlayer = null
 # Voice Language Mode
 enum VoiceMode { HYBRID, JAPANESE_ONLY, RUSSIAN_ONLY }
 var voice_mode: VoiceMode = VoiceMode.JAPANESE_ONLY
+var music_volume_scale: float = 0.85
+var sfx_volume_scale: float = 1.0
 
 # Russian & Japanese Anime Girl Voice pools
 var idle_voices: Array[AudioStream] = []
@@ -75,6 +77,28 @@ var ellen_vn_greet_stream: AudioStream = null
 var ellen_vn_accept_stream: AudioStream = null
 var ellen_attack_voices: Array[AudioStream] = []
 var ellen_idle_voices: Array[AudioStream] = []
+
+# Heroine (Player) Dialogue Vocal Streams
+var heroine_dialogue_start_stream: AudioStream = null
+var heroine_choice_recruit_stream: AudioStream = null
+var heroine_choice_battle_stream: AudioStream = null
+
+# Material Hit Audio Streams
+var hit_metal_stream: AudioStream = null
+var hit_wood_stream: AudioStream = null
+var hit_stone_stream: AudioStream = null
+var hit_building_stream: AudioStream = null
+var hit_cyber_stream: AudioStream = null
+var hit_bone_stream: AudioStream = null
+var hit_flesh_stream: AudioStream = null
+var hit_slime_stream: AudioStream = null
+
+# Biome BGMs
+var current_biome_id: String = "asian"
+var school_bgm_stream: AudioStream = null
+var blight_bgm_stream: AudioStream = null
+var cyber_bgm_stream: AudioStream = null
+var bgm_players: Dictionary = {}
 
 # Monster Audio Streams
 var slime_hop_stream: AudioStream = null
@@ -250,6 +274,26 @@ func _ready() -> void:
 	_add_audio(ellen_attack_voices, "res://assets/sounds/voice/ellen_attack_2.mp3")
 	_add_audio(ellen_idle_voices, "res://assets/sounds/voice/ellen_idle.mp3")
 
+	# Heroine Dialogue Voice Streams
+	heroine_dialogue_start_stream = _load_audio("res://assets/sounds/voice/heroine_dialogue_start.mp3")
+	heroine_choice_recruit_stream = _load_audio("res://assets/sounds/voice/heroine_choice_recruit.mp3")
+	heroine_choice_battle_stream = _load_audio("res://assets/sounds/voice/heroine_choice_battle.mp3")
+
+	# Material Hit Audio Streams
+	hit_metal_stream = _load_audio("res://assets/sounds/hit_materials/hit_metal.wav")
+	hit_wood_stream = _load_audio("res://assets/sounds/hit_materials/hit_wood.wav")
+	hit_stone_stream = _load_audio("res://assets/sounds/hit_materials/hit_stone.wav")
+	hit_building_stream = _load_audio("res://assets/sounds/hit_materials/hit_building.wav")
+	hit_cyber_stream = _load_audio("res://assets/sounds/hit_materials/hit_cyber.wav")
+	hit_bone_stream = _load_audio("res://assets/sounds/hit_materials/hit_bone.wav")
+	hit_flesh_stream = _load_audio("res://assets/sounds/hit_materials/hit_flesh.wav")
+	hit_slime_stream = _load_audio("res://assets/sounds/hit_materials/hit_slime.wav")
+
+	# Biome BGM Streams
+	school_bgm_stream = _load_audio("res://assets/sounds/bgm/anime_school_days.wav")
+	blight_bgm_stream = _load_audio("res://assets/sounds/bgm/blighted_plaguelands.wav")
+	cyber_bgm_stream = _load_audio("res://assets/sounds/bgm/cyber_city_pulse.wav")
+
 	# Monsters audio loading
 	slime_hop_stream = _load_audio("res://assets/sounds/monsters/slime_hop.wav")
 	slime_alert_stream = _load_audio("res://assets/sounds/monsters/slime_alert.wav")
@@ -279,16 +323,27 @@ func _ready() -> void:
 		ambient_player.play()
 		ambient_player.finished.connect(func(): ambient_player.play())
 
-	# Asian Fantasy BGM Player (Continuous calming music loop)
+	# Multi-Biome BGM Players with seamless cross-fading
 	asian_bgm_stream = _load_audio("res://assets/sounds/bgm/asian_fantasy_peace.mp3")
-	if asian_bgm_stream:
-		asian_bgm_player = AudioStreamPlayer.new()
-		asian_bgm_player.name = "AsianBGMPlayer"
-		asian_bgm_player.stream = asian_bgm_stream
-		asian_bgm_player.volume_db = -10.0
-		add_child(asian_bgm_player)
-		asian_bgm_player.play()
-		asian_bgm_player.finished.connect(func(): if is_instance_valid(asian_bgm_player): asian_bgm_player.play())
+	var bgm_map = {
+		"asian": asian_bgm_stream,
+		"school": school_bgm_stream,
+		"blight": blight_bgm_stream,
+		"cyber": cyber_bgm_stream
+	}
+	for b_id in bgm_map:
+		var st = bgm_map[b_id]
+		if st:
+			var p = AudioStreamPlayer.new()
+			p.name = "BGM_" + b_id
+			p.stream = st
+			p.volume_db = -10.0 if b_id == "asian" else -80.0
+			add_child(p)
+			p.play()
+			var capture_p = p
+			p.finished.connect(func(): if is_instance_valid(capture_p): capture_p.play())
+			bgm_players[b_id] = p
+	asian_bgm_player = bgm_players.get("asian", null)
 
 	# Water interaction audio streams
 	water_splash_enter_stream = _load_audio("res://assets/sounds/player/water_splash_enter.wav")
@@ -493,6 +548,12 @@ func play_voice_ellen_accept() -> void:
 	if ellen_vn_accept_stream:
 		_play_direct_voice(ellen_vn_accept_stream)
 
+func play_voice_ellen_attack() -> void:
+	_play_voice_stream(ellen_attack_voices, true)
+
+func play_voice_ellen_idle() -> void:
+	_play_voice_stream(ellen_idle_voices, false)
+
 func _play_direct_voice(stream: AudioStream) -> void:
 	if not stream or not voice_player:
 		return
@@ -662,4 +723,85 @@ func play_building_collapse(node: Node3D) -> void:
 
 func play_stone_crumble(node: Node3D) -> void:
 	_play_clip_3d(node, stone_crumble_stream, 3.0, randf_range(0.93, 1.07), true)
+
+# ==================== MATERIAL IMPACT & HIT SOUNDS ====================
+
+func play_material_hit(node: Node, mat_type: String) -> void:
+	var stream = hit_flesh_stream
+	var vol = -3.5
+	match mat_type:
+		"metal":
+			stream = hit_metal_stream
+			vol = -4.0
+		"wood":
+			stream = hit_wood_stream
+			vol = -3.0
+		"stone":
+			stream = hit_stone_stream
+			vol = -2.5
+		"building":
+			stream = hit_building_stream
+			vol = -2.5
+		"cyber":
+			stream = hit_cyber_stream
+			vol = -3.5
+		"bone":
+			stream = hit_bone_stream
+			vol = -3.5
+		"slime":
+			stream = hit_slime_stream
+			vol = -3.0
+		_:
+			stream = hit_flesh_stream
+			vol = -3.5
+
+	if stream:
+		_play_clip(node if node else self, stream, vol, randf_range(0.95, 1.05))
+
+# ==================== HEROINE (PLAYER) DIALOGUE VOCALS ====================
+
+func play_heroine_dialogue_start() -> void:
+	if heroine_dialogue_start_stream:
+		_play_direct_voice(heroine_dialogue_start_stream)
+
+func play_heroine_choice_recruit() -> void:
+	if heroine_choice_recruit_stream:
+		_play_direct_voice(heroine_choice_recruit_stream)
+
+func play_heroine_choice_battle() -> void:
+	if heroine_choice_battle_stream:
+		_play_direct_voice(heroine_choice_battle_stream)
+
+# ==================== BIOME BGM CROSS-FADING ====================
+
+func set_music_volume_scale(scale_val: float) -> void:
+	music_volume_scale = clampf(scale_val, 0.0, 1.0)
+	for b_id in bgm_players:
+		var p = bgm_players[b_id]
+		if is_instance_valid(p):
+			if b_id == current_biome_id:
+				var base_vol = 0.32 if b_id == "asian" else 0.28
+				p.volume_db = -80.0 if music_volume_scale <= 0.01 else linear_to_db(music_volume_scale * base_vol)
+			else:
+				p.volume_db = -80.0
+
+func set_sfx_volume_scale(scale_val: float) -> void:
+	sfx_volume_scale = clampf(scale_val, 0.0, 1.0)
+
+func update_biome_bgm(new_biome: String) -> void:
+	if new_biome == current_biome_id or not bgm_players.has(new_biome):
+		return
+	var old_p = bgm_players.get(current_biome_id)
+	var new_p = bgm_players.get(new_biome)
+	current_biome_id = new_biome
+
+	if old_p and is_instance_valid(old_p):
+		var tw_out = create_tween()
+		tw_out.tween_property(old_p, "volume_db", -80.0, 1.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if new_p and is_instance_valid(new_p):
+		var base_vol = 0.32 if new_biome == "asian" else 0.28
+		var target_vol = -80.0 if music_volume_scale <= 0.01 else linear_to_db(music_volume_scale * base_vol)
+		var tw_in = create_tween()
+		tw_in.tween_property(new_p, "volume_db", target_vol, 1.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
 
