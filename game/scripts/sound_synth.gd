@@ -119,6 +119,14 @@ var skel_die_stream: AudioStream = null
 
 var voice_player: AudioStreamPlayer = null
 
+# High-Performance Audio Player Pools (Zero-allocation audio architecture)
+const POOL_SIZE_2D: int = 16
+const POOL_SIZE_3D: int = 16
+var _pool_2d: Array[AudioStreamPlayer] = []
+var _pool_3d: Array[AudioStreamPlayer3D] = []
+var _pool_idx_2d: int = 0
+var _pool_idx_3d: int = 0
+
 func _ready() -> void:
 	slash_stream = _load_audio("res://assets/sounds/sword_slash_1.wav")
 	var s1 = _load_audio("res://assets/sounds/sword_slash_1.wav")
@@ -354,6 +362,21 @@ func _ready() -> void:
 	voice_player.volume_db = 0.0
 	add_child(voice_player)
 	voice_player.finished.connect(func(): hero_voice_finished.emit())
+
+	# Pre-allocate round-robin audio player pools to prevent dynamic GC pauses & memory leaks
+	for i in range(POOL_SIZE_2D):
+		var p = AudioStreamPlayer.new()
+		p.name = "PooledPlayer2D_" + str(i)
+		add_child(p)
+		_pool_2d.append(p)
+
+	for i in range(POOL_SIZE_3D):
+		var p3d = AudioStreamPlayer3D.new()
+		p3d.name = "PooledPlayer3D_" + str(i)
+		p3d.max_distance = 35.0
+		p3d.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+		add_child(p3d)
+		_pool_3d.append(p3d)
 
 func is_voice_playing() -> bool:
 	return voice_player != null and voice_player.is_playing()
@@ -608,24 +631,17 @@ func play_step_run(node: Node) -> void:
 func play_chime_rarity(node: Node, rarity: int) -> void:
 	var pitches = [1.0, 1.25, 1.5, 2.0]
 	var p = pitches[clamp(rarity, 0, pitches.size() - 1)]
-	var player = AudioStreamPlayer.new()
-	player.stream = level_up_stream if level_up_stream else jump_stream
-	player.pitch_scale = p
-	player.volume_db = -6.0
-	node.add_child(player)
-	player.play()
-	player.finished.connect(func(): player.queue_free())
+	_play_clip(node, level_up_stream if level_up_stream else jump_stream, -6.0, p)
 
-func _play_clip(node: Node, stream: AudioStream, vol: float = 0.0, pitch: float = 1.0) -> void:
-	if not is_instance_valid(node) or not node.is_inside_tree() or not stream:
+func _play_clip(_node: Node, stream: AudioStream, vol: float = 0.0, pitch: float = 1.0) -> void:
+	if not stream or _pool_2d.is_empty():
 		return
-	var player = AudioStreamPlayer.new()
+	var player = _pool_2d[_pool_idx_2d]
+	_pool_idx_2d = (_pool_idx_2d + 1) % POOL_SIZE_2D
 	player.stream = stream
 	player.volume_db = vol
 	player.pitch_scale = pitch
-	node.add_child(player)
 	player.play()
-	player.finished.connect(func(): player.queue_free())
 
 # ==================== MONSTER AUDIO (3D Positional) ====================
 
@@ -675,27 +691,17 @@ func play_skeleton_alert(node: Node3D) -> void:
 func play_skeleton_die(node: Node3D) -> void:
 	_play_clip_3d(node, skel_die_stream, 1.0, 1.0, true)
 
-func _play_clip_3d(node: Node3D, stream: AudioStream, vol: float = 0.0, pitch: float = 1.0, is_global: bool = false) -> void:
-	if not stream:
+func _play_clip_3d(node: Node3D, stream: AudioStream, vol: float = 0.0, pitch: float = 1.0, _is_global: bool = false) -> void:
+	if not stream or _pool_3d.is_empty():
 		return
-	var player3d = AudioStreamPlayer3D.new()
+	var player3d = _pool_3d[_pool_idx_3d]
+	_pool_idx_3d = (_pool_idx_3d + 1) % POOL_SIZE_3D
 	player3d.stream = stream
 	player3d.volume_db = vol
 	player3d.pitch_scale = pitch
-	player3d.max_distance = 35.0
-	player3d.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
-
-	if is_global or not is_instance_valid(node) or not node.is_inside_tree():
-		var tree = Engine.get_main_loop() as SceneTree
-		if tree and tree.current_scene:
-			tree.current_scene.add_child(player3d)
-			if is_instance_valid(node):
-				player3d.global_position = node.global_position
-	else:
-		node.add_child(player3d)
-
+	if is_instance_valid(node) and node.is_inside_tree():
+		player3d.global_position = node.global_position
 	player3d.play()
-	player3d.finished.connect(func(): player3d.queue_free())
 
 func play_water_splash_enter(node: Node3D) -> void:
 	_play_clip_3d(node, water_splash_enter_stream, -9.0, randf_range(0.92, 1.08))

@@ -178,13 +178,15 @@ func _apply_ellen_cel_shading() -> void:
 				if is_hair_surf:
 					toon.set_shader_parameter("use_texture", true)
 					toon.set_shader_parameter("albedo_texture", hair_tex)
-					toon.set_shader_parameter("albedo_color", Color(0.9, 0.85, 0.95))
+					toon.set_shader_parameter("albedo_color", Color.WHITE)
 					toon.set_shader_parameter("is_hair", true)
 					toon.set_shader_parameter("hair_specular_power", 96.0)
 					toon.set_shader_parameter("shadow_threshold", 0.32)
 					toon.set_shader_parameter("deep_shadow_threshold", 0.14)
-					toon.set_shader_parameter("shadow_tint", Color(0.40, 0.15, 0.22, 1.0))
-					toon.set_shader_parameter("deep_shadow_tint", Color(0.22, 0.08, 0.12, 1.0))
+					toon.set_shader_parameter("shadow_tint", Color(0.20, 0.15, 0.22, 1.0))
+					toon.set_shader_parameter("deep_shadow_tint", Color(0.12, 0.08, 0.14, 1.0))
+					toon.set_shader_parameter("use_alpha_scissor", true)
+					toon.set_shader_parameter("alpha_scissor_threshold", 0.5)
 					hair_materials.append(toon)
 				elif is_eye_surf:
 					toon.set_shader_parameter("use_texture", true)
@@ -208,8 +210,8 @@ func _apply_ellen_cel_shading() -> void:
 					toon.set_shader_parameter("use_texture", true)
 					toon.set_shader_parameter("albedo_texture", body_tex)
 					toon.set_shader_parameter("albedo_color", Color.WHITE)
-					toon.set_shader_parameter("shadow_threshold", 0.28)
-					toon.set_shader_parameter("deep_shadow_threshold", 0.12)
+					toon.set_shader_parameter("shadow_threshold", 0.30)
+					toon.set_shader_parameter("deep_shadow_threshold", 0.14)
 					body_materials.append(toon)
 				else:
 					if mat is StandardMaterial3D and mat.albedo_texture:
@@ -241,16 +243,22 @@ func _update_shark_tail(delta: float) -> void:
 	# Calculate movement inertia for the tail
 	var move_speed = (global_position - last_global_pos).length() / max(delta, 0.001)
 	last_global_pos = global_position
-	tail_inertia = lerp(tail_inertia, move_speed, delta * 5.0)
+	tail_inertia = lerp(tail_inertia, move_speed, delta * 4.0)
 
-	# Natural shark tail swimming sway
-	var sway_freq = 2.0 + clamp(tail_inertia * 0.4, 0.0, 3.5)
-	var sway_amp = 14.0 + clamp(tail_inertia * 2.5, 0.0, 18.0)
+	# Natural predatory shark tail swimming sway
+	# Slower, heavier, more organic in idle, swift in motion
+	var sway_freq = 1.6 + clamp(tail_inertia * 0.35, 0.0, 2.4)
+	var sway_amp = 14.0 + clamp(tail_inertia * 2.2, 0.0, 16.0)
+
 	var sway_y = sin(tail_sway_time * sway_freq) * sway_amp
-	var sway_roll = cos(tail_sway_time * (sway_freq * 0.8)) * (sway_amp * 0.25)
+	var sway_roll = cos(tail_sway_time * (sway_freq * 0.85)) * (sway_amp * 0.30)
+	var sway_pitch = sin(tail_sway_time * (sway_freq * 1.7)) * 3.5
 
-	tail_node.rotation_degrees.y = 180.0 + sway_y
-	tail_node.rotation_degrees.z = sway_roll
+	tail_node.rotation_degrees = Vector3(
+		12.0 + sway_pitch,
+		180.0 + sway_y,
+		sway_roll
+	)
 
 func _update_blinking(delta: float) -> void:
 	if not face_eye_mesh or blink_shape_l_idx < 0:

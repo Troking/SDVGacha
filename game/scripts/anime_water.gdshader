@@ -1,105 +1,133 @@
 shader_type spatial;
-render_mode blend_mix, cull_back, diffuse_burley, specular_schlick_ggx;
+render_mode blend_mix, cull_disabled, depth_draw_always, diffuse_toon, specular_toon;
 
-// Water Color Palette (Genshin Impact / Liyue / Fontaine crystal clear style)
-uniform vec4 shore_color : source_color = vec4(0.35, 0.88, 0.92, 0.40);
-uniform vec4 shallow_color : source_color = vec4(0.12, 0.60, 0.76, 0.68);
-uniform vec4 deep_color : source_color = vec4(0.04, 0.20, 0.45, 0.88);
-uniform float depth_distance : hint_range(0.1, 8.0) = 2.2;
+// ===================================================================
+// AAA ANIME CRYSTAL-CLEAR WATER SHADER (Genshin Impact / Fontaine / Liyue)
+// - Pristine, smooth liquid surface with zero zebra-banding
+// - True optical transparency revealing underwater riverbed & pebbles
+// - High-frequency capillary ripples & flowing downstream current
+// - Shimmering diamond sun glints (Genshin stepped specular highlights)
+// - Delicate undulating anime shoreline foam ribbons
+// - Smooth Fresnel sky reflection & soft feathering against riverbanks
+// ===================================================================
 
-// Shoreline Foam
-uniform vec4 foam_color : source_color = vec4(0.96, 0.99, 1.0, 0.95);
-uniform float foam_distance : hint_range(0.01, 1.0) = 0.28;
+group_uniforms Palette_Fontaine;
+uniform vec4 deep_color : source_color = vec4(0.08, 0.42, 0.64, 0.60);       // Translucent Fontaine azure-teal
+uniform vec4 shallow_color : source_color = vec4(0.16, 0.72, 0.78, 0.38);    // Crystal clear bright turquoise
+uniform vec4 shore_color : source_color = vec4(0.42, 0.88, 0.88, 0.18);      // Ultra-transparent shore aqua
+uniform vec4 foam_color : source_color = vec4(0.96, 0.99, 1.00, 0.88);       // Soft anime seafoam white
+uniform vec4 sun_sparkle_color : source_color = vec4(1.00, 0.98, 0.84, 1.0); // Warm diamond sun sparkle
 
-// Wave Animation & Caustics
-uniform vec2 flow_direction = vec2(0.0, 0.08); // Flows gently along the river (Z axis)
-uniform float wave_scale_1 = 3.5;
-uniform float wave_scale_2 = 9.0;
-uniform float wave_height = 0.025;
+group_uniforms Flow_And_Dynamics;
+uniform float flow_speed : hint_range(0.05, 2.0) = 0.50;
+uniform float wave_displacement : hint_range(0.0, 0.06) = 0.015;
+uniform float river_half_width : hint_range(2.0, 12.0) = 5.6;
+uniform float foam_reach : hint_range(0.2, 2.0) = 0.85;
 
-// Screen Refraction & Fresnel Reflection
-uniform sampler2D screen_texture : hint_screen_texture, filter_linear_mipmap;
-uniform sampler2D depth_texture : hint_depth_texture, filter_linear_mipmap;
-uniform float refraction_strength : hint_range(0.0, 0.05) = 0.015;
-uniform float reflection_strength : hint_range(0.0, 1.0) = 0.35;
+varying vec3 v_world_pos;
+varying vec3 v_world_normal;
 
-void vertex() {
-	// Gentle harmonic surface displacement
-	vec2 p = (UV + flow_direction * TIME) * wave_scale_1;
-	float w1 = sin(p.x * 2.0 + p.y * 1.5 + TIME * 1.6) * 0.015;
-	float w2 = cos(p.x * -1.8 + p.y * 3.0 - TIME * 1.2) * 0.010;
-	VERTEX.y += (w1 + w2) * (wave_height / 0.025);
+// Smooth 3D surface physical wave displacement
+float get_fluid_displacement(vec2 pos, float time) {
+	float w1 = sin(pos.y * 1.8 + pos.x * 0.5 + time * 2.0) * 0.50;
+	float w2 = sin(pos.y * 3.2 - pos.x * 1.2 + time * 2.8) * 0.30;
+	float w3 = cos(pos.x * 2.4 + pos.y * 1.6 + time * 1.6) * 0.20;
+	return w1 + w2 + w3;
 }
 
-// Procedural anime caustics pattern
-float get_caustics(vec2 uv) {
-	vec2 p1 = uv * 22.0 + vec2(TIME * 0.35, TIME * 0.55);
-	vec2 p2 = uv * 32.0 - vec2(TIME * 0.45, TIME * 0.25);
-	float c1 = sin(p1.x + sin(p1.y * 0.9));
-	float c2 = cos(p2.y + cos(p2.x * 0.9));
-	float val = clamp((c1 + c2) * 0.5 + 0.5, 0.0, 1.0);
-	return pow(val, 3.2);
+// High-frequency capillary ripples for sparkling diamond glints
+vec2 get_capillary_derivatives(vec2 p, float time) {
+	vec2 p1 = p * 12.0 + vec2(0.0, time * 1.4);
+	vec2 p2 = p * 20.0 - vec2(time * 0.9, time * 1.2);
+	vec2 p3 = p * 32.0 + vec2(time * 1.1, -time * 0.7);
+
+	float dx = cos(p1.x + sin(p1.y)) * 0.4 + sin(p2.x - p2.y) * 0.35 + cos(p3.x) * 0.25;
+	float dy = cos(p1.y + sin(p1.x)) * 0.4 + sin(p2.y + p2.x) * 0.35 + sin(p3.y) * 0.25;
+	return vec2(dx, dy);
+}
+
+// Procedural anime shoreline foam lace
+float get_foam_lace(vec2 uv, float time) {
+	vec2 p = uv * 18.0 + vec2(sin(uv.y * 4.0 + time * 1.5) * 0.3, time * 0.8);
+	float n1 = sin(p.x * 3.6 + p.y * 2.6);
+	float n2 = cos(p.x * 4.4 - p.y * 3.6);
+	float bubble = clamp((n1 + n2) * 0.5 + 0.5, 0.0, 1.0);
+	return smoothstep(0.45, 0.82, bubble);
+}
+
+void vertex() {
+	v_world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+
+	// Gentle physical wave rise & fall
+	float t = TIME * flow_speed;
+	float wave = get_fluid_displacement(vec2(v_world_pos.x * 0.6, v_world_pos.z * 0.5), t);
+	VERTEX.y += wave * wave_displacement;
 }
 
 void fragment() {
-	// 1. Precise Screen-Space Water Depth
-	float depth_raw = texture(depth_texture, SCREEN_UV).r;
-	vec3 ndc = vec3(SCREEN_UV * 2.0 - 1.0, depth_raw);
-	vec4 view_pos = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
-	view_pos.xyz /= view_pos.w;
-	float linear_depth = -view_pos.z;
-	float surface_depth = -VERTEX.z;
-	float water_depth = max(0.0, linear_depth - surface_depth);
+	float t = TIME * flow_speed;
 
-	// 2. Multi-octave wave normal perturbation in Tangent Space
-	vec2 uv_flow1 = UV * wave_scale_1 + flow_direction * TIME;
-	vec2 uv_flow2 = UV * wave_scale_2 - vec2(flow_direction.y, flow_direction.x) * (TIME * 0.85);
+	// 1. River centerline & normalized distance to bank
+	float x_riv = sin(v_world_pos.z * 0.025) * 3.5;
+	float dist_from_center = abs(v_world_pos.x - x_riv);
+	float norm_dist = clamp(dist_from_center / river_half_width, 0.0, 1.0);
 
-	float wave_dx = sin(uv_flow1.x * 4.0 + uv_flow1.y * 2.5 + TIME * 2.0) * 0.06
-	              + cos(uv_flow2.x * 6.0 - uv_flow2.y * 4.0 + TIME * 1.7) * 0.04;
-	float wave_dy = cos(uv_flow1.x * 3.0 - uv_flow1.y * 3.5 + TIME * 1.8) * 0.06
-	              + sin(uv_flow2.x * 5.0 + uv_flow2.y * 5.0 - TIME * 2.2) * 0.04;
+	// 2. High-frequency capillary ripples (subtle normal perturbation for sparkles)
+	vec2 ripple_deriv = get_capillary_derivatives(vec2(v_world_pos.x * 0.5, v_world_pos.z * 0.4), t);
+	vec3 local_ripple_norm = normalize(vec3(-ripple_deriv.x * 0.18, 1.0, -ripple_deriv.y * 0.18));
+	NORMAL = normalize(mat3(TANGENT, BINORMAL, NORMAL) * local_ripple_norm);
 
-	// Perturb the existing View-Space surface normal correctly
-	vec3 tangent_norm = normalize(vec3(wave_dx, wave_dy, 1.0));
-	NORMAL = normalize(mat3(TANGENT, BINORMAL, NORMAL) * tangent_norm);
+	// 3. Fontaine Crystal Depth Gradient
+	// Center is deep crystal azure-teal; shores are see-through clear aqua
+	vec4 water_color = mix(deep_color, shallow_color, smoothstep(0.08, 0.55, norm_dist));
+	water_color = mix(water_color, shore_color, smoothstep(0.50, 0.92, norm_dist));
 
-	// 3. Screen Refraction (distorts riverbed underneath)
-	vec2 refract_offset = vec2(wave_dx, wave_dy) * refraction_strength * clamp(water_depth * 1.5, 0.0, 1.0);
-	vec4 screen_refract = texture(screen_texture, SCREEN_UV + refract_offset);
+	// 4. Smooth Fresnel Sky Reflection (Using flat world normal prevents zebra bands!)
+	float view_dot_up = max(0.0, dot(vec3(0.0, 1.0, 0.0), VIEW));
+	float fresnel = pow(1.0 - view_dot_up, 3.2);
+	vec3 sky_reflection = mix(vec3(0.42, 0.78, 0.98), vec3(0.94, 0.98, 1.0), fresnel * 0.5);
 
-	// 4. Smooth Shoreline Alpha Fade (no razor-sharp cutoff against grass!)
-	float shore_fade = smoothstep(0.01, 0.35, water_depth);
+	// 5. Undulating Anime Shoreline Foam Ribbons
+	float dist_to_shore = max(0.0, river_half_width - dist_from_center);
+	float shore_foam_band = 1.0 - smoothstep(0.02, foam_reach, dist_to_shore);
+	float shore_wave = sin(v_world_pos.z * 2.8 + t * 3.6) * 0.28 + 0.72;
+	float foam_lace = get_foam_lace(vec2(v_world_pos.x * 0.6, v_world_pos.z * 0.6), t);
+	float shore_foam = clamp(shore_foam_band * shore_wave * (0.45 + foam_lace * 0.65), 0.0, 1.0);
 
-	// 5. Stylized Animated Anime Shoreline Foam
-	float foam_edge = 1.0 - smoothstep(0.01, foam_distance, water_depth);
-	float foam_pulse = sin(TIME * 2.8 + (UV.x + UV.y) * 28.0) * 0.5 + 0.5;
-	float foam = smoothstep(0.35, 0.85, foam_edge * (0.65 + foam_pulse * 0.45));
+	// 6. Downstream Drifting Foam Flecks along mid-current
+	vec2 f_uv = vec2(v_world_pos.x * 3.5, v_world_pos.z * 1.6 + t * 0.95);
+	float fleck_bubble = pow(clamp(sin(f_uv.x * 3.0 + f_uv.y * 2.0) * cos(f_uv.x * 2.2 - f_uv.y * 3.2) * 0.5 + 0.5, 0.0, 1.0), 5.0);
+	float mid_stream_mask = smoothstep(0.85, 0.40, norm_dist) * smoothstep(0.06, 0.35, norm_dist);
+	float drifting_flecks = fleck_bubble * mid_stream_mask * 0.35;
 
-	// 6. Water Color Gradient (shore turquoise -> shallow azure -> deep sapphire)
-	float depth_t = clamp(water_depth / depth_distance, 0.0, 1.0);
-	vec4 water_tint = mix(shallow_color, deep_color, depth_t);
-	water_tint = mix(shore_color, water_tint, smoothstep(0.04, 0.40, water_depth));
+	float total_foam = clamp(shore_foam + drifting_flecks, 0.0, 1.0);
 
-	// 7. Caustics Shimmer in shallow water
-	float caust = get_caustics(UV) * smoothstep(1.8, 0.08, water_depth) * 0.28;
-	vec3 caust_color = vec3(0.75, 1.0, 0.95) * caust;
+	// 7. Stepped Diamond Sun Sparkles (Genshin specular glints)
+	vec3 light_dir = normalize(vec3(0.42, 0.76, 0.42));
+	vec3 half_vec = normalize(VIEW + light_dir);
+	float n_dot_h = max(0.0, dot(NORMAL, half_vec));
+	float glint1 = smoothstep(0.965, 0.992, n_dot_h);
+	float glint2 = smoothstep(0.915, 0.955, n_dot_h) * 0.35;
+	float sparkle = (glint1 + glint2) * (1.0 - total_foam * 0.7);
 
-	// 8. Composite Water Color
-	vec3 base_color = mix(screen_refract.rgb, water_tint.rgb, water_tint.a);
-	base_color += caust_color;
+	// 8. Surface Color Composition
+	vec3 final_rgb = water_color.rgb;
+	// Smoothly blend sky reflection
+	final_rgb = mix(final_rgb, sky_reflection, fresnel * 0.38);
+	// Blend foam
+	final_rgb = mix(final_rgb, foam_color.rgb, total_foam * foam_color.a);
+	// Add diamond sun sparkles
+	final_rgb += sun_sparkle_color.rgb * sparkle * 0.75;
 
-	// Foam blending
-	base_color = mix(base_color, foam_color.rgb, foam * foam_color.a);
+	// 9. Soft Shoreline Feather Fade (Seamless edge without polygon clipping)
+	float edge_feather = smoothstep(river_half_width, river_half_width - 0.35, dist_from_center);
+	// Crystal-clear shallow water: ALPHA is 0.18 - 0.38 so riverbed pebbles & sand are clearly seen!
+	float final_alpha = mix(water_color.a, 0.94, total_foam) * edge_feather;
 
-	// 9. Fresnel Sky Specular Glint
-	float fresnel = pow(1.0 - max(0.0, dot(NORMAL, VIEW)), 4.0);
-	vec3 sky_glint = mix(vec3(0.55, 0.82, 1.0), vec3(1.0, 0.95, 0.85), fresnel);
-	base_color = mix(base_color, sky_glint, fresnel * reflection_strength * (1.0 - foam));
-
-	ALBEDO = base_color;
-	ALPHA = clamp(shore_fade * max(water_tint.a, 0.45) + foam * 0.85 + fresnel * 0.20, 0.0, 1.0);
-	ROUGHNESS = mix(0.04, 0.35, foam);
-	SPECULAR = 0.90;
-	METALLIC = 0.05;
+	ALBEDO = final_rgb;
+	ALPHA = clamp(final_alpha, 0.0, 1.0);
+	ROUGHNESS = mix(0.06, 0.50, total_foam);
+	METALLIC = 0.02;
+	SPECULAR = 0.45;
 }

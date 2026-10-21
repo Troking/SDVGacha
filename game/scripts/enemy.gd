@@ -8,6 +8,7 @@ class_name ChibiEnemy
 @export var attack_cooldown: float = 1.8
 
 var current_hp: int = 40
+var is_dead: bool = false
 var player: CharacterBody3D = null
 var can_attack: bool = true
 var is_telegraphing: bool = false
@@ -284,6 +285,8 @@ func attack_player() -> void:
 	var tween = create_tween()
 	tween.tween_property(visual, "scale", Vector3(1.45, 0.55, 1.45), 0.32)
 	await tween.finished
+	if not is_instance_valid(self) or is_dead:
+		return
 
 	# Strike!
 	if monster_type == MonsterType.GOBLIN:
@@ -306,12 +309,18 @@ func attack_player() -> void:
 	var tween_back = create_tween()
 	tween_back.tween_property(visual, "scale", Vector3(1.0, 1.0, 1.0), 0.18)
 	await tween_back.finished
+	if not is_instance_valid(self) or is_dead:
+		return
 
 	is_telegraphing = false
 	await get_tree().create_timer(attack_cooldown).timeout
+	if not is_instance_valid(self) or is_dead:
+		return
 	can_attack = true
 
 func take_damage(dmg: int, is_pyro: bool = false, is_crit: bool = false) -> void:
+	if is_dead:
+		return
 	current_hp -= dmg
 	update_hp_display()
 
@@ -383,6 +392,9 @@ func take_damage(dmg: int, is_pyro: bool = false, is_crit: bool = false) -> void
 			SoundSynth.play_slime_hurt(self)
 
 func die() -> void:
+	if is_dead:
+		return
+	is_dead = true
 	# Immediately disable collision and hide visual components
 	var col = get_node_or_null("CollisionShape3D") as CollisionShape3D
 	if col: col.set_deferred("disabled", true)

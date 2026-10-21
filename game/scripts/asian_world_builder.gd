@@ -97,6 +97,11 @@ func _build_terrain() -> void:
 	if water_shader:
 		water_mat.shader = water_shader
 
+	var biome_shader = load("res://scripts/genshin_terrain_biome.gdshader") as Shader
+	var biome_mat = ShaderMaterial.new()
+	if biome_shader:
+		biome_mat.shader = biome_shader
+
 	var invis_mat = StandardMaterial3D.new()
 	invis_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	invis_mat.albedo_color = Color(0, 0, 0, 0)
@@ -107,6 +112,8 @@ func _build_terrain() -> void:
 			if mesh.get_surface_count() > 1:
 				# Hide terrain's low-poly 4-vertex water quad to prevent Z-fighting with subdivided water plane
 				child.set_surface_override_material(1, invis_mat)
+			if biome_mat:
+				child.set_surface_override_material(0, biome_mat)
 			_create_ground_surface_collision(child, 0)
 
 	_build_water_lake_and_river(water_mat)
@@ -136,14 +143,145 @@ func _build_water_lake_and_river(water_mat: Material) -> void:
 	var water_plane = MeshInstance3D.new()
 	water_plane.name = "ReflectiveWaterSurface"
 	var p_mesh = PlaneMesh.new()
-	p_mesh.size = Vector2(26.0, 210.0)
+	p_mesh.size = Vector2(24.0, 210.0)
 	p_mesh.subdivide_width = 48
-	p_mesh.subdivide_depth = 96
+	p_mesh.subdivide_depth = 192
 	water_plane.mesh = p_mesh
 	if water_mat:
 		water_plane.material_override = water_mat
 	water_plane.position = Vector3(0.0, -0.45, 0.0)
 	add_child(water_plane)
+
+	# 1. Natural Riverbank Boulders & Shoreline Stones
+	var mat_rock = StandardMaterial3D.new()
+	mat_rock.albedo_color = Color(0.48, 0.50, 0.52)
+	mat_rock.roughness = 0.90
+	mat_rock.specular_mode = BaseMaterial3D.SPECULAR_TOON
+
+	var mat_moss = StandardMaterial3D.new()
+	mat_moss.albedo_color = Color(0.38, 0.42, 0.36)
+	mat_moss.roughness = 0.95
+	mat_moss.specular_mode = BaseMaterial3D.SPECULAR_TOON
+
+	var rock_z_coords = [-85.0, -68.0, -50.0, -32.0, -14.0, 6.0, 24.0, 44.0, 64.0, 84.0]
+	for rz in rock_z_coords:
+		var x_mid = sin(rz * 0.025) * 3.5
+		for side in [-1.0, 1.0]:
+			var rx = x_mid + side * (3.8 + randf() * 1.5)
+			var ry = get_terrain_height(rx, rz)
+			var rock = MeshInstance3D.new()
+			var sm = SphereMesh.new()
+			sm.radius = randf_range(0.40, 0.85)
+			sm.height = sm.radius * randf_range(1.1, 1.6)
+			rock.mesh = sm
+			rock.material_override = mat_moss if randf() > 0.4 else mat_rock
+			rock.position = Vector3(rx, ry - sm.radius * 0.30, rz + randf_range(-1.5, 1.5))
+			rock.scale = Vector3(randf_range(0.9, 1.4), randf_range(0.7, 1.1), randf_range(0.9, 1.4))
+			add_child(rock)
+
+	# 3. River Stepping Stones (Natural flat tobi-ishi crossing near Z = -4.0)
+	var mat_stepping = StandardMaterial3D.new()
+	mat_stepping.albedo_color = Color(0.32, 0.34, 0.36)
+	mat_stepping.roughness = 0.82
+	mat_stepping.specular_mode = BaseMaterial3D.SPECULAR_TOON
+	var step_xs = [-2.8, -1.7, -0.6, 0.5, 1.6, 2.7]
+	for sx in step_xs:
+		var step_stone = MeshInstance3D.new()
+		var cyl = CylinderMesh.new()
+		cyl.top_radius = 0.44
+		cyl.bottom_radius = 0.50
+		cyl.height = 0.30
+		step_stone.mesh = cyl
+		step_stone.material_override = mat_stepping
+		var z_step = -4.0 + sx * 0.12
+		step_stone.position = Vector3(sx, -0.36, z_step)
+		# Add static collision so player can hop on them
+		var sb = StaticBody3D.new()
+		var col = CollisionShape3D.new()
+		var cshape = CylinderShape3D.new()
+		cshape.radius = 0.44
+		cshape.height = 0.30
+		col.shape = cshape
+		sb.add_child(col)
+		step_stone.add_child(sb)
+		add_child(step_stone)
+
+	# 4. Riverbank Water Reeds & Cattails
+	var mat_reed = StandardMaterial3D.new()
+	mat_reed.albedo_color = Color(0.35, 0.58, 0.22)
+	mat_reed.roughness = 0.85
+	mat_reed.specular_mode = BaseMaterial3D.SPECULAR_TOON
+
+	var reed_z_coords = [-70.0, -42.0, -18.0, 10.0, 38.0, 68.0]
+	for rz in reed_z_coords:
+		var x_mid = sin(rz * 0.025) * 3.5
+		for side in [-1.0, 1.0]:
+			var cluster_x = x_mid + side * (3.6 + randf() * 0.6)
+			var cluster_y = get_terrain_height(cluster_x, rz)
+			if cluster_y < 0.25:
+				for reed_i in range(4):
+					var reed = MeshInstance3D.new()
+					var r_cyl = CylinderMesh.new()
+					r_cyl.top_radius = 0.025
+					r_cyl.bottom_radius = 0.045
+					r_cyl.height = randf_range(1.1, 1.7)
+					reed.mesh = r_cyl
+					reed.material_override = mat_reed
+					reed.position = Vector3(
+						cluster_x + randf_range(-0.4, 0.4),
+						cluster_y + r_cyl.height * 0.45,
+						rz + randf_range(-0.4, 0.4)
+					)
+					reed.rotation_degrees = Vector3(randf_range(-6.0, 6.0), randf_range(0.0, 360.0), randf_range(-8.0, 8.0))
+					add_child(reed)
+
+	# 5. Scenic Floating Lotus Blossom Lily Pads (Guaranteed in deep water only)
+	var mat_pad = StandardMaterial3D.new()
+	mat_pad.albedo_color = Color(0.20, 0.58, 0.25)
+	mat_pad.roughness = 0.85
+	mat_pad.specular_mode = BaseMaterial3D.SPECULAR_TOON
+
+	var mat_lotus = StandardMaterial3D.new()
+	mat_lotus.albedo_color = Color(0.98, 0.65, 0.82)
+	mat_lotus.emission_enabled = true
+	mat_lotus.emission = Color(0.85, 0.35, 0.65)
+	mat_lotus.emission_energy_multiplier = 0.45
+	mat_lotus.roughness = 0.70
+
+	var lotus_spots = [
+		Vector3(sin(-55.0 * 0.025) * 3.5 - 0.8, -0.44, -55.0),
+		Vector3(sin(-35.0 * 0.025) * 3.5 - 0.8, -0.44, -35.0),
+		Vector3(sin(-15.0 * 0.025) * 3.5 + 0.9, -0.44, -15.0),
+		Vector3(sin(12.0 * 0.025) * 3.5 - 0.6, -0.44, 12.0),
+		Vector3(sin(32.0 * 0.025) * 3.5 + 0.8, -0.44, 32.0),
+		Vector3(sin(48.0 * 0.025) * 3.5 + 0.7, -0.44, 48.0),
+		Vector3(sin(75.0 * 0.025) * 3.5 - 0.9, -0.44, 75.0),
+	]
+	for spot in lotus_spots:
+		# Check depth: only spawn if ground is submerged beneath water
+		if get_terrain_height(spot.x, spot.z) < -0.80:
+			for p_idx in range(3):
+				var pad_pos = spot + Vector3(randf_range(-0.5, 0.5), 0.0, randf_range(-0.5, 0.5))
+				if get_terrain_height(pad_pos.x, pad_pos.z) < -0.75:
+					var pad = MeshInstance3D.new()
+					var cyl = CylinderMesh.new()
+					cyl.top_radius = randf_range(0.32, 0.48)
+					cyl.bottom_radius = cyl.top_radius
+					cyl.height = 0.02
+					pad.mesh = cyl
+					pad.material_override = mat_pad
+					pad.position = pad_pos
+					add_child(pad)
+
+					if p_idx == 0:
+						var flower = MeshInstance3D.new()
+						var f_mesh = SphereMesh.new()
+						f_mesh.radius = 0.15
+						f_mesh.height = 0.20
+						flower.mesh = f_mesh
+						flower.material_override = mat_lotus
+						flower.position = pad.position + Vector3(0.0, 0.08, 0.0)
+						add_child(flower)
 
 func _build_world_boundary_walls() -> void:
 	var boundary_body = StaticBody3D.new()
@@ -540,6 +678,53 @@ func _build_blighted_undead_lands() -> void:
 	mist.color_ramp = grad
 	add_child(mist)
 
+	# 5. Twisted Dead Trees in the Corrupted Lands
+	var dead_tree_positions = [
+		Vector3(-40.0, 2.5, -74.0),
+		Vector3(-52.0, 2.7, -66.0),
+		Vector3(-66.0, 3.0, -82.0),
+		Vector3(-34.0, 2.3, -86.0),
+		Vector3(-56.0, 2.8, -96.0)
+	]
+	for dt_pos in dead_tree_positions:
+		_build_dead_tree(dt_pos, randf_range(0.9, 1.3))
+
+func _build_dead_tree(pos: Vector3, scale_mult: float = 1.0) -> Node3D:
+	var tree = Node3D.new()
+	tree.position = pos
+	var mat_bark = StandardMaterial3D.new()
+	mat_bark.albedo_color = Color(0.15, 0.13, 0.17)
+	mat_bark.roughness = 0.95
+	mat_bark.specular_mode = BaseMaterial3D.SPECULAR_TOON
+
+	# Main gnarled trunk
+	var trunk = MeshInstance3D.new()
+	var cyl = CylinderMesh.new()
+	cyl.top_radius = 0.20 * scale_mult
+	cyl.bottom_radius = 0.42 * scale_mult
+	cyl.height = 3.8 * scale_mult
+	trunk.mesh = cyl
+	trunk.material_override = mat_bark
+	trunk.position = Vector3(0, 1.9 * scale_mult, 0)
+	tree.add_child(trunk)
+
+	# Gnarled twisted leafless branches
+	for i in range(4):
+		var branch = MeshInstance3D.new()
+		var b_cyl = CylinderMesh.new()
+		b_cyl.top_radius = 0.05 * scale_mult
+		b_cyl.bottom_radius = 0.14 * scale_mult
+		b_cyl.height = 2.0 * scale_mult
+		branch.mesh = b_cyl
+		branch.material_override = mat_bark
+		var ang = (float(i) / 4.0) * TAU
+		branch.position = Vector3(cos(ang) * 0.6 * scale_mult, 2.8 * scale_mult, sin(ang) * 0.6 * scale_mult)
+		branch.rotation = Vector3(0.55 * sin(ang), ang, 0.55 * cos(ang))
+		tree.add_child(branch)
+
+	add_child(tree)
+	return tree
+
 func _build_cyber_city() -> void:
 	# 1. Cyber Skyscraper Towers
 	var towers = [
@@ -568,7 +753,52 @@ func _build_cyber_city() -> void:
 		_setup_trimesh_collision(lamp)
 		_add_lantern_light(lamp, Vector3(1.15, 4.15, 0), Color(0.0, 0.95, 1.0), 1.8, 8.0)
 
-	# 3. Floating Digital Matrix Data Cubes
+	# 3. Holographic Neon Road Bollards
+	var mat_cyan_neon = StandardMaterial3D.new()
+	mat_cyan_neon.albedo_color = Color(0.0, 0.95, 1.0)
+	mat_cyan_neon.emission_enabled = true
+	mat_cyan_neon.emission = Color(0.0, 0.95, 1.0)
+	mat_cyan_neon.emission_energy_multiplier = 2.4
+
+	var mat_magenta_neon = StandardMaterial3D.new()
+	mat_magenta_neon.albedo_color = Color(1.0, 0.12, 0.80)
+	mat_magenta_neon.emission_enabled = true
+	mat_magenta_neon.emission = Color(1.0, 0.12, 0.80)
+	mat_magenta_neon.emission_energy_multiplier = 2.4
+
+	var mat_tech_metal = StandardMaterial3D.new()
+	mat_tech_metal.albedo_color = Color(0.12, 0.14, 0.18)
+	mat_tech_metal.metallic = 0.85
+	mat_tech_metal.roughness = 0.35
+
+	var bollard_positions = [
+		Vector3(32.0, 3.2, 70.0), Vector3(48.0, 3.3, 70.0),
+		Vector3(32.0, 3.3, 82.0), Vector3(48.0, 3.4, 82.0),
+		Vector3(32.0, 3.4, 94.0), Vector3(48.0, 3.5, 94.0),
+		Vector3(32.0, 3.5, 106.0), Vector3(48.0, 3.6, 106.0)
+	]
+	for idx in range(bollard_positions.size()):
+		var b_pos = bollard_positions[idx]
+		var bollard = Node3D.new()
+		bollard.position = b_pos
+		var base = MeshInstance3D.new()
+		var b_box = BoxMesh.new()
+		b_box.size = Vector3(0.35, 0.8, 0.35)
+		base.mesh = b_box
+		base.material_override = mat_tech_metal
+		base.position = Vector3(0, 0.4, 0)
+		bollard.add_child(base)
+
+		var cap = MeshInstance3D.new()
+		var c_box = BoxMesh.new()
+		c_box.size = Vector3(0.38, 0.22, 0.38)
+		cap.mesh = c_box
+		cap.material_override = mat_cyan_neon if (idx % 2 == 0) else mat_magenta_neon
+		cap.position = Vector3(0, 0.9, 0)
+		bollard.add_child(cap)
+		add_child(bollard)
+
+	# 4. Floating Digital Matrix Data Cubes
 	var matrix_p = CPUParticles3D.new()
 	matrix_p.name = "CyberMatrixParticles"
 	matrix_p.position = Vector3(40.0, 4.0, 90.0)

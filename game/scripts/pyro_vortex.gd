@@ -93,7 +93,9 @@ func _find_destructible(node: Node) -> DestructibleProp:
 		if p is DestructibleProp and is_instance_valid(p):
 			return p
 	var curr = node
-	while curr:
+	var depth = 0
+	while curr and depth < 10:
+		depth += 1
 		if curr is DestructibleProp:
 			return curr
 		if curr.has_meta("destructible_parent"):

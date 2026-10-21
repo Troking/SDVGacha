@@ -145,8 +145,23 @@ func _setup_splash_screen() -> void:
 					if img:
 						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/ellen_dialogue_showcase.png")
 						print("[ELLEN_DIALOGUE] Saved ellen_dialogue_showcase.png")
-				get_tree().quit(0)
-				OS.kill(OS.get_process_id())
+
+				# Fast forward to choice buttons
+				if ui and ui.has_method("_advance_vn"):
+					ui._advance_vn()
+					ui._advance_vn()
+
+				var t_choices = get_tree().create_timer(0.5)
+				t_choices.timeout.connect(func():
+					await RenderingServer.frame_post_draw
+					if vp:
+						var img2 = vp.get_texture().get_image()
+						if img2:
+							img2.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/ellen_dialogue_choices.png")
+							print("[ELLEN_CHOICES] Saved ellen_dialogue_choices.png")
+					get_tree().quit(0)
+					OS.kill(OS.get_process_id())
+				)
 			)
 		)
 		return
@@ -219,11 +234,11 @@ func _setup_splash_screen() -> void:
 		var timer = get_tree().create_timer(0.4)
 		timer.timeout.connect(func():
 			if player:
-				player.global_position = Vector3(30.0, AsianWorldBuilder.get_terrain_height(30.0, -34.0) + 0.1, -34.0)
+				player.global_position = Vector3(22.0, AsianWorldBuilder.get_terrain_height(22.0, -30.0) + 0.1, -30.0)
 				if player.camera_pivot:
-					player.camera_pivot.rotation_degrees = Vector3(-8.0, 0.0, 0.0)
+					player.camera_pivot.rotation_degrees = Vector3(-6.0, -68.0, 0.0)
 				if player.spring_arm:
-					player.spring_arm.spring_length = 7.0
+					player.spring_arm.spring_length = 5.5
 			var sub_timer = get_tree().create_timer(0.8)
 			sub_timer.timeout.connect(func():
 				await RenderingServer.frame_post_draw
@@ -235,6 +250,46 @@ func _setup_splash_screen() -> void:
 						print("[SCHOOL] Saved school_showcase.png")
 				get_tree().quit(0)
 				OS.kill(OS.get_process_id())
+			)
+		)
+		return
+
+	if "--test-biomes" in OS.get_cmdline_args():
+		_on_splash_started()
+		var brain_dir = "C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17"
+		var timer = get_tree().create_timer(0.4)
+		timer.timeout.connect(func():
+			# 1. Blighted Undead Crypt
+			if player:
+				player.global_position = Vector3(-44.0, AsianWorldBuilder.get_terrain_height(-44.0, -72.0) + 0.1, -72.0)
+				if player.camera_pivot:
+					player.camera_pivot.rotation_degrees = Vector3(-10.0, -145.0, 0.0)
+			_update_monster_spawning(true)
+			var t1 = get_tree().create_timer(0.6)
+			t1.timeout.connect(func():
+				await _capture_screenshot(brain_dir + "/showcase_05_blighted_undead.png")
+				# 2. Cyber City
+				if player:
+					player.global_position = Vector3(40.0, AsianWorldBuilder.get_terrain_height(40.0, 82.0) + 0.1, 82.0)
+					if player.camera_pivot:
+						player.camera_pivot.rotation_degrees = Vector3(-12.0, 35.0, 0.0)
+				_update_monster_spawning(true)
+				var t2 = get_tree().create_timer(0.6)
+				t2.timeout.connect(func():
+					await _capture_screenshot(brain_dir + "/showcase_06_cyber_city.png")
+					# 3. Asian City Promenade
+					if player:
+						player.global_position = Vector3(26.0, AsianWorldBuilder.get_terrain_height(26.0, -6.0) + 0.1, -6.0)
+						if player.camera_pivot:
+							player.camera_pivot.rotation_degrees = Vector3(-10.0, -90.0, 0.0)
+					var t3 = get_tree().create_timer(0.6)
+					t3.timeout.connect(func():
+						await _capture_screenshot(brain_dir + "/showcase_city_promenade.png")
+						print("[BIOMES] All biome screenshots saved!")
+						get_tree().quit(0)
+						OS.kill(OS.get_process_id())
+					)
+				)
 			)
 		)
 		return
@@ -325,8 +380,10 @@ func _setup_splash_screen() -> void:
 			if player:
 				player.global_position = Vector3(4.5, AsianWorldBuilder.get_terrain_height(4.5, 5.0) + 0.1, 5.0)
 				if player.camera_pivot:
-					player.camera_pivot.rotation_degrees = Vector3(-18.0, 140.0, 0.0)
-			var sub_timer = get_tree().create_timer(0.6)
+					player.camera_pivot.rotation_degrees = Vector3(-12.0, 150.0, 0.0)
+				if player.spring_arm:
+					player.spring_arm.spring_length = 6.0
+			var sub_timer = get_tree().create_timer(0.8)
 			sub_timer.timeout.connect(func():
 				await RenderingServer.frame_post_draw
 				var vp = get_viewport()
@@ -336,6 +393,7 @@ func _setup_splash_screen() -> void:
 						img.save_png("C:/Users/troki/.gemini/antigravity/brain/347d3171-74d4-4c12-8caf-29af6064aa17/new_water_showcase.png")
 						print("[WATER] Saved new_water_showcase.png")
 				get_tree().quit(0)
+				OS.kill(OS.get_process_id())
 			)
 		)
 		return
@@ -392,6 +450,29 @@ func _process(delta: float) -> void:
 	if stream_check_timer >= 0.3:
 		stream_check_timer = 0.0
 		_update_monster_spawning()
+		_check_player_current_biome()
+
+func _check_player_current_biome() -> void:
+	if not player or not ui or not ui.has_method("show_location_banner"):
+		return
+	var pos = player.global_position
+	var x = pos.x
+	var z = pos.z
+
+	if x >= 8.0 and x <= 56.0 and z >= -74.0 and z <= -22.0:
+		ui.show_location_banner("Старшая Школа Сакурагаока", "Учебный корпус и спортивный комплекс")
+	elif x >= 8.0 and x <= 55.0 and z >= -22.0 and z <= 18.0:
+		ui.show_location_banner("Имперский Город Ли Юэ", "Торговый проспект и Пагода Дракона")
+	elif x <= -18.0 and z <= -50.0:
+		ui.show_location_banner("Проклятые Земли Нежити", "Древний некрополь и склеп темных душ")
+	elif x >= 15.0 and x <= 75.0 and z >= 55.0:
+		ui.show_location_banner("Нео-Кибер Район", "Техногенный сектор Каверны 0")
+	elif x >= 45.0 and z >= 25.0 and z <= 85.0:
+		ui.show_location_banner("Карстовые Пики", "Высокогорное Святилище Дракона")
+	elif x < -6.0 and z >= 18.0 and z <= 90.0:
+		ui.show_location_banner("Изумрудный Бамбуковый Лес", "Обитель духов и тайный чайный домик")
+	elif x < -6.0 and z >= -55.0 and z < 18.0:
+		ui.show_location_banner("Долина Сакуры", "Священное святилище Кицунэ")
 
 func _update_day_night_cycle(_delta: float) -> void:
 	if not sun or not env_node or not env_node.environment:
@@ -420,50 +501,50 @@ func _update_day_night_cycle(_delta: float) -> void:
 	if time_of_day >= 0.20 and time_of_day < 0.30:
 		# 1. Рассвет (Dawn / Sunrise)
 		var p = (time_of_day - 0.20) / 0.10
-		light_col = Color(1.0, 0.62, 0.40).lerp(Color(1.0, 0.94, 0.84), p)
-		light_e = lerp(0.85, 1.30, p)
-		ambient_col = Color(0.85, 0.70, 0.78).lerp(Color(0.72, 0.82, 0.96), p)
-		ambient_e = lerp(0.70, 0.85, p)
-		fog_col = Color(0.92, 0.76, 0.68).lerp(Color(0.72, 0.84, 0.98), p)
-		fog_d = lerp(0.0022, 0.0014, p)
-		sky_e = lerp(0.85, 1.15, p)
+		light_col = Color(1.0, 0.70, 0.48).lerp(Color(1.0, 0.95, 0.88), p)
+		light_e = lerp(0.65, 0.95, p)
+		ambient_col = Color(0.80, 0.68, 0.76).lerp(Color(0.68, 0.76, 0.90), p)
+		ambient_e = lerp(0.30, 0.38, p)
+		fog_col = Color(0.88, 0.72, 0.65).lerp(Color(0.68, 0.80, 0.95), p)
+		fog_d = lerp(0.0012, 0.0008, p)
+		sky_e = lerp(0.75, 1.0, p)
 		night_factor = lerp(0.5, 0.0, p)
 	elif time_of_day >= 0.30 and time_of_day < 0.70:
 		# 2. День (Daytime)
-		light_col = Color(1.0, 0.96, 0.88)
-		light_e = 1.30
-		ambient_col = Color(0.72, 0.82, 0.96)
-		ambient_e = 0.85
-		fog_col = Color(0.72, 0.84, 0.98)
-		fog_d = 0.0014
-		sky_e = 1.15
+		light_col = Color(1.0, 0.97, 0.92)
+		light_e = 0.95
+		ambient_col = Color(0.68, 0.76, 0.90)
+		ambient_e = 0.38
+		fog_col = Color(0.68, 0.80, 0.95)
+		fog_d = 0.0008
+		sky_e = 1.0
 		night_factor = 0.0
 	elif time_of_day >= 0.70 and time_of_day < 0.82:
 		# 3. Закат / Вечер (Golden Hour & Sunset)
 		var p = (time_of_day - 0.70) / 0.12
-		light_col = Color(1.0, 0.82, 0.45).lerp(Color(1.0, 0.42, 0.18), p)
-		light_e = lerp(1.25, 0.45, p)
-		ambient_col = Color(0.82, 0.72, 0.88).lerp(Color(0.68, 0.42, 0.58), p)
-		ambient_e = lerp(0.85, 0.58, p)
-		fog_col = Color(0.95, 0.65, 0.45).lerp(Color(0.88, 0.38, 0.32), p)
-		fog_d = lerp(0.0014, 0.0020, p)
-		sky_e = lerp(1.15, 0.65, p)
+		light_col = Color(1.0, 0.80, 0.48).lerp(Color(1.0, 0.46, 0.22), p)
+		light_e = lerp(0.90, 0.40, p)
+		ambient_col = Color(0.78, 0.68, 0.82).lerp(Color(0.62, 0.40, 0.54), p)
+		ambient_e = lerp(0.38, 0.28, p)
+		fog_col = Color(0.90, 0.62, 0.42).lerp(Color(0.82, 0.35, 0.28), p)
+		fog_d = lerp(0.0008, 0.0012, p)
+		sky_e = lerp(1.0, 0.60, p)
 		night_factor = p
 	else:
 		# 4. Ночь (Night / Moonlight)
-		light_col = Color(0.58, 0.72, 0.98)
-		light_e = 0.38
-		ambient_col = Color(0.24, 0.28, 0.48)
-		ambient_e = 0.42
-		fog_col = Color(0.12, 0.16, 0.32)
-		fog_d = 0.0018
-		sky_e = 0.35
+		light_col = Color(0.55, 0.70, 0.95)
+		light_e = 0.28
+		ambient_col = Color(0.20, 0.24, 0.42)
+		ambient_e = 0.22
+		fog_col = Color(0.10, 0.14, 0.28)
+		fog_d = 0.0011
+		sky_e = 0.30
 		night_factor = 1.0
 
 	var pitch_deg: float
 	var yaw_deg: float
 	if is_day:
-		pitch_deg = -clamp(sun_y * 72.0, 10.0, 72.0)
+		pitch_deg = -clamp(sun_y * 65.0, 26.0, 68.0)
 		yaw_deg = lerp_angle(deg_to_rad(45.0), deg_to_rad(225.0), (time_of_day - 0.25) / 0.50)
 	else:
 		pitch_deg = -45.0

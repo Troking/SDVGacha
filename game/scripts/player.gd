@@ -1,6 +1,12 @@
 extends CharacterBody3D
 class_name ChibiPlayer
 
+const TEX_MAGIC_CIRCLE = preload("res://assets/textures/magic_circle_pyro.png")
+const TEX_PYRO_BUTTERFLY = preload("res://assets/textures/fx_pyro_butterfly.png")
+const TEX_ASCENSION_RING = preload("res://assets/textures/fx_ascension_ring.png")
+const TEX_LIGHT_SHAFT = preload("res://assets/textures/fx_light_shaft.png")
+const TEX_CELESTIAL_SPARKLE = preload("res://assets/textures/fx_celestial_sparkle.png")
+
 signal stats_changed(hp: int, max_hp: int, exp_val: int, exp_to_next: int, level: int, attack_val: int)
 signal level_up_event(new_level: int, new_hp: int, new_atk: int)
 signal exp_gained_event(amount: int)
@@ -88,7 +94,7 @@ var glider_tween: Tween = null
 
 # Swimming State
 var is_swimming: bool = false
-var water_surface_y: float = -0.55
+var water_surface_y: float = -0.45
 var swim_speed: float = 4.8
 var swim_fast_speed: float = 7.4
 var swim_stroke_timer: float = 0.0
@@ -363,11 +369,11 @@ func _setup_genshin_cel_shading() -> void:
 					toon_mat.set_shader_parameter("shadow_tint", Color(0.94, 0.82, 0.80, 1.0))
 					toon_mat.set_shader_parameter("deep_shadow_tint", Color(0.85, 0.70, 0.70, 1.0))
 				elif "body" in lower_name or "body" in mat_name:
-					toon_mat.set_shader_parameter("shadow_threshold", 0.28)
-					toon_mat.set_shader_parameter("deep_shadow_threshold", 0.12)
+					toon_mat.set_shader_parameter("shadow_threshold", 0.44)
+					toon_mat.set_shader_parameter("deep_shadow_threshold", 0.18)
 					toon_mat.set_shader_parameter("ambient_strength", 0.50)
-					toon_mat.set_shader_parameter("shadow_tint", Color(0.65, 0.60, 0.68, 1.0))
-					toon_mat.set_shader_parameter("deep_shadow_tint", Color(0.48, 0.44, 0.52, 1.0))
+					toon_mat.set_shader_parameter("shadow_tint", Color(0.68, 0.62, 0.72, 1.0))
+					toon_mat.set_shader_parameter("deep_shadow_tint", Color(0.50, 0.45, 0.56, 1.0))
 
 				child.set_surface_override_material(surface_idx, toon_mat)
 
@@ -1064,49 +1070,55 @@ func start_dialogue_camera(target_node: Node3D) -> void:
 	if not camera_pivot or not spring_arm or not target_node:
 		return
 
+	# Hide player mesh during dialogue so it NEVER obstructs the NPC
+	if visual_mesh:
+		visual_mesh.visible = false
+
 	dialogue_saved_pivot_rot = camera_pivot.rotation
 	dialogue_saved_spring_len = spring_arm.spring_length
 
-	# Frame NPC's face in the center/upper half of screen
-	var npc_head = target_node.global_position + Vector3(0, 1.22, 0)
-	var dir_to_player = (global_position - target_node.global_position)
-	dir_to_player.y = 0.0
-	if dir_to_player.length_squared() < 0.01:
-		dir_to_player = Vector3(0, 0, 1)
-	dir_to_player = dir_to_player.normalized()
+	# Frame NPC's bust (head, torso, maid outfit down to hips) in a crisp 3/4 cinematic portrait
+	var target_focus = target_node.global_position + Vector3(0, 0.95, 0)
+	var npc_fwd = -target_node.global_transform.basis.z
+	var npc_right = target_node.global_transform.basis.x
+	if npc_fwd.length_squared() < 0.1:
+		npc_fwd = Vector3(0, 0, 1)
+		npc_right = Vector3(1, 0, 0)
+	else:
+		npc_fwd = npc_fwd.normalized()
+		npc_right = npc_right.normalized()
 
-	camera_pivot.top_level = true
-	camera_pivot.global_position = npc_head
-	camera_pivot.look_at(npc_head - dir_to_player, Vector3.UP)
+	# Position camera in front of NPC with a gentle 3/4 angle
+	var cam_pos = target_focus + (npc_fwd * 1.65) + (npc_right * 0.40) + Vector3(0, 0.12, 0)
+
+	spring_arm.collision_mask = 0 # Prevent clipping into nearby objects
+	spring_arm.spring_length = 0.0
 
 	if camera_node:
 		camera_node.h_offset = 0.0
-		camera_node.v_offset = -0.16
+		camera_node.v_offset = 0.0
 
-	if dialogue_cam_tween and dialogue_cam_tween.is_valid():
-		dialogue_cam_tween.kill()
-
-	dialogue_cam_tween = create_tween()
-	dialogue_cam_tween.tween_property(spring_arm, "spring_length", 1.20, 0.40).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	camera_pivot.top_level = true
+	camera_pivot.global_position = cam_pos
+	camera_pivot.look_at(target_focus, Vector3.UP)
 
 func end_dialogue_camera() -> void:
 	if not is_in_dialogue:
 		return
 
-	if dialogue_cam_tween and dialogue_cam_tween.is_valid():
-		dialogue_cam_tween.kill()
+	if visual_mesh:
+		visual_mesh.visible = true
+
+	spring_arm.collision_mask = 1
 
 	if camera_node:
 		camera_node.h_offset = 0.35
 		camera_node.v_offset = 0.12
 
-	dialogue_cam_tween = create_tween().set_parallel(true)
-	dialogue_cam_tween.tween_property(spring_arm, "spring_length", dialogue_saved_spring_len, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	await dialogue_cam_tween.finished
-
 	camera_pivot.top_level = false
 	camera_pivot.position = Vector3(0, 1.25, 0)
 	camera_pivot.rotation = dialogue_saved_pivot_rot
+	spring_arm.spring_length = dialogue_saved_spring_len
 
 	is_in_dialogue = false
 	is_game_active = true
@@ -1529,7 +1541,7 @@ func _start_charging_attack() -> void:
 	r_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	r_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	r_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	r_mat.albedo_texture = load("res://assets/textures/magic_circle_pyro.png")
+	r_mat.albedo_texture = TEX_MAGIC_CIRCLE
 	r_mat.albedo_color = Color(1.0, 0.45, 0.1, 0.0)
 	rune.mesh = r_mesh
 	rune.material_override = r_mat
@@ -1595,7 +1607,9 @@ func _find_destructible(node: Node) -> DestructibleProp:
 		if p is DestructibleProp and is_instance_valid(p):
 			return p
 	var curr = node
-	while curr:
+	var depth = 0
+	while curr and depth < 10:
+		depth += 1
 		if curr is DestructibleProp:
 			return curr
 		if curr.has_meta("destructible_parent"):
@@ -1713,7 +1727,7 @@ func _spawn_charged_butterfly_burst(pos: Vector3) -> void:
 	p_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	p_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	p_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	p_mat.albedo_texture = load("res://assets/textures/fx_pyro_butterfly.png")
+	p_mat.albedo_texture = TEX_PYRO_BUTTERFLY
 	p_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	p_mat.vertex_color_use_as_albedo = true
 
@@ -2047,9 +2061,7 @@ func _spawn_level_up_vfx() -> void:
 	r_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	r_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	r_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var ring_tex = load("res://assets/textures/fx_ascension_ring.png") as Texture2D
-	if ring_tex:
-		r_mat.albedo_texture = ring_tex
+	r_mat.albedo_texture = TEX_ASCENSION_RING
 	r_mat.albedo_color = Color(1.0, 0.92, 0.65, 0.85)
 	ring_mesh.material_override = r_mat
 	vfx_root.add_child(ring_mesh)
@@ -2072,9 +2084,7 @@ func _spawn_level_up_vfx() -> void:
 	s_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	s_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	s_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var shaft_tex = load("res://assets/textures/fx_light_shaft.png") as Texture2D
-	if shaft_tex:
-		s_mat.albedo_texture = shaft_tex
+	s_mat.albedo_texture = TEX_LIGHT_SHAFT
 	s_mat.albedo_color = Color(1.0, 0.94, 0.70, 0.70)
 
 	for ang in [0.0, PI * 0.5]:
@@ -2103,9 +2113,7 @@ func _spawn_level_up_vfx() -> void:
 	sp_mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	sp_mat.billboard_keep_scale = true
 	sp_mat.vertex_color_use_as_albedo = true
-	var sp_tex = load("res://assets/textures/fx_celestial_sparkle.png") as Texture2D
-	if sp_tex:
-		sp_mat.albedo_texture = sp_tex
+	sp_mat.albedo_texture = TEX_CELESTIAL_SPARKLE
 
 	var quad_sparkle = QuadMesh.new()
 	quad_sparkle.size = Vector2(0.24, 0.24)

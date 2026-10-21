@@ -88,6 +88,10 @@ void fragment() {
 	if (is_face) {
 		// Soften face exposure so delicate anime skin blush and contours remain rich and visible under bright outdoor sunlight
 		base = mix(base, base * vec3(0.96, 0.90, 0.88), 0.25);
+	} else {
+		// Keep warm peach tone on bare skin areas so they contrast cleanly against white socks & cuffs
+		float is_skin = step(0.85, base.r) * step(0.75, base.g) * step(0.65, base.b) * step(base.b, base.g);
+		base = mix(base, base * vec3(0.98, 0.88, 0.82), is_skin * 0.35);
 	}
 
 	ALBEDO = base;
@@ -147,11 +151,11 @@ void light() {
 		spec_result = spec * light_col * 0.12;
 	}
 
-	// Controlled diffuse & specular accumulation per light (prevents multi-light blowout)
+	// Controlled diffuse & specular accumulation per light (prevents multi-light blowout on white clothing)
 	if (is_face) {
-		DIFFUSE_LIGHT += clamp(diffuse_result * 0.35, vec3(0.0), vec3(0.40));
+		DIFFUSE_LIGHT += clamp(diffuse_result * 0.30, vec3(0.0), vec3(0.35));
 	} else {
-		DIFFUSE_LIGHT += clamp(diffuse_result * 0.55 + rim_result, vec3(0.0), vec3(0.65));
+		DIFFUSE_LIGHT += clamp(diffuse_result * 0.40 + rim_result, vec3(0.0), vec3(0.48));
 	}
-	SPECULAR_LIGHT += clamp(spec_result, vec3(0.0), vec3(0.14));
+	SPECULAR_LIGHT += clamp(spec_result, vec3(0.0), vec3(0.10));
 }

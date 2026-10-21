@@ -118,6 +118,13 @@ var recruit_name_label: Label = null
 var recruit_role_label: Label = null
 var recruit_portrait: TextureRect = null
 
+# Genshin-style Location Discovery Banner
+var location_banner: Control = null
+var location_title_label: Label = null
+var location_sub_label: Label = null
+var current_zone_name: String = ""
+var location_banner_tween: Tween = null
+
 # Pause Menu & Controls Guide
 var pause_menu: Control = null
 var is_pause_menu_open: bool = false
@@ -158,6 +165,7 @@ func _ready() -> void:
 	_setup_party_hud()
 	_setup_visual_novel_ui()
 	_setup_recruit_banner()
+	_setup_location_banner()
 	_setup_nav_tabs()
 	_setup_inventory_filter_bar()
 	_setup_voice_mode_button()
@@ -844,10 +852,12 @@ func _setup_item_inspector_card() -> void:
 	right_vbox.add_child(item_inspector_card)
 
 func _expand_inventory_grid_slots() -> void:
-	# Ensure grid has MAX_BAG_SLOTS (36) slots
-	while inv_grid.get_child_count() < InventoryManager.MAX_BAG_SLOTS:
+	# Ensure grid has MAX_BAG_SLOTS (36) slots without any unbounded loop
+	var needed = max(0, InventoryManager.MAX_BAG_SLOTS - inv_grid.get_child_count())
+	for i in range(needed):
 		var slot = slot_scene.instantiate() as InventorySlot
-		inv_grid.add_child(slot)
+		if slot:
+			inv_grid.add_child(slot)
 
 	# Connect all slots
 	var all_slots = [weapon_slot, shield_slot, boots_slot]
@@ -1145,6 +1155,9 @@ func _on_preview_gui_input(event: InputEvent) -> void:
 
 func _input(event: InputEvent) -> void:
 	if vn_is_active:
+		# When choice options are currently visible, DO NOT consume clicks so buttons can receive them!
+		if vn_choices_vbox and vn_choices_vbox.visible:
+			return
 		if event is InputEventMouseButton and event.is_pressed() and event.button_index == MOUSE_BUTTON_LEFT:
 			_advance_vn()
 			get_viewport().set_input_as_handled()
@@ -1701,30 +1714,41 @@ func _show_vn_choices() -> void:
 	var choices = vn_current_dialogue_data.get("choices", []) as Array
 	for c_data in choices:
 		var btn = Button.new()
-		btn.text = c_data.get("text", "")
-		btn.custom_minimum_size = Vector2(0, 52)
+		btn.text = "✦   " + c_data.get("text", "")
+		btn.custom_minimum_size = Vector2(0, 56)
 		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		btn.mouse_filter = Control.MOUSE_FILTER_STOP
+		btn.focus_mode = Control.FOCUS_ALL
 
 		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.10, 0.12, 0.20, 0.96)
-		sb.border_width_left = 3
+		sb.bg_color = Color(0.07, 0.09, 0.15, 0.96)
+		sb.border_width_left = 6
 		sb.border_width_top = 2
 		sb.border_width_right = 2
 		sb.border_width_bottom = 2
-		sb.border_color = Color(0.35, 0.88, 1.0, 1.0)
-		sb.corner_radius_top_left = 10
-		sb.corner_radius_top_right = 10
-		sb.corner_radius_bottom_right = 10
-		sb.corner_radius_bottom_left = 10
+		sb.border_color = Color(0.25, 0.85, 1.0, 1.0)
+		sb.corner_radius_top_left = 12
+		sb.corner_radius_top_right = 12
+		sb.corner_radius_bottom_right = 12
+		sb.corner_radius_bottom_left = 12
+		sb.content_margin_left = 22
+		sb.content_margin_right = 22
+		sb.shadow_color = Color(0, 0, 0, 0.5)
+		sb.shadow_size = 6
 		btn.add_theme_stylebox_override("normal", sb)
 
 		var sb_hov = sb.duplicate() as StyleBoxFlat
-		sb_hov.bg_color = Color(0.18, 0.24, 0.38, 1.0)
-		sb_hov.border_color = Color(0.7, 0.98, 1.0, 1.0)
+		sb_hov.bg_color = Color(0.15, 0.22, 0.36, 1.0)
+		sb_hov.border_color = Color(0.70, 0.96, 1.0, 1.0)
+		sb_hov.border_width_left = 8
+		sb_hov.shadow_color = Color(0.1, 0.6, 0.9, 0.4)
+		sb_hov.shadow_size = 12
 		btn.add_theme_stylebox_override("hover", sb_hov)
 		btn.add_theme_stylebox_override("pressed", sb_hov)
+		btn.add_theme_stylebox_override("focus", sb_hov)
 		btn.add_theme_font_size_override("font_size", 20)
-		btn.add_theme_color_override("font_color", Color(1.0, 0.96, 0.88))
+		btn.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		btn.add_theme_color_override("font_hover_color", Color(1.0, 0.92, 0.65))
 
 		var chosen = c_data
 		btn.pressed.connect(func():
@@ -1905,6 +1929,85 @@ func show_party_recruit_banner(c_name: String, c_role: String, portrait_p: Strin
 	fade.tween_property(recruit_banner, "modulate:a", 0.0, 0.35)
 	await fade.finished
 	recruit_banner.visible = false
+
+# ==================== GENSHIN-STYLE LOCATION DISCOVERY BANNER ====================
+
+func _setup_location_banner() -> void:
+	location_banner = Control.new()
+	location_banner.name = "LocationDiscoveryBanner"
+	location_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	location_banner.offset_top = 70.0
+	location_banner.offset_bottom = 150.0
+	location_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	location_banner.visible = false
+	add_child(location_banner)
+
+	var center_vbox = VBoxContainer.new()
+	center_vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	center_vbox.add_theme_constant_override("separation", 4)
+	location_banner.add_child(center_vbox)
+
+	var dec_top = Label.new()
+	dec_top.text = "✦ ─── ❖ ─── ✦"
+	dec_top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dec_top.add_theme_font_size_override("font_size", 12)
+	dec_top.add_theme_color_override("font_color", Color(1.0, 0.85, 0.45, 0.75))
+	center_vbox.add_child(dec_top)
+
+	location_title_label = Label.new()
+	location_title_label.name = "LocationTitle"
+	location_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	location_title_label.add_theme_font_size_override("font_size", 28)
+	location_title_label.add_theme_color_override("font_color", Color(1.0, 0.96, 0.88))
+	location_title_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	location_title_label.add_theme_constant_override("shadow_offset_x", 2)
+	location_title_label.add_theme_constant_override("shadow_offset_y", 2)
+	center_vbox.add_child(location_title_label)
+
+	location_sub_label = Label.new()
+	location_sub_label.name = "LocationSubtitle"
+	location_sub_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	location_sub_label.add_theme_font_size_override("font_size", 14)
+	location_sub_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 0.85))
+	location_sub_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	location_sub_label.add_theme_constant_override("shadow_offset_x", 1)
+	location_sub_label.add_theme_constant_override("shadow_offset_y", 1)
+	center_vbox.add_child(location_sub_label)
+
+func show_location_banner(loc_name: String, sub_title: String) -> void:
+	if not location_banner:
+		return
+	if current_zone_name == loc_name:
+		return
+	current_zone_name = loc_name
+
+	location_title_label.text = loc_name
+	location_sub_label.text = sub_title
+
+	location_banner.visible = true
+	location_banner.modulate.a = 0.0
+	location_banner.position.y = 50.0
+
+	if location_banner_tween and location_banner_tween.is_valid():
+		location_banner_tween.kill()
+
+	SoundSynth.play_chime_rarity(self, 1)
+
+	location_banner_tween = create_tween()
+	location_banner_tween.set_parallel(true)
+	location_banner_tween.tween_property(location_banner, "modulate:a", 1.0, 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	location_banner_tween.tween_property(location_banner, "position:y", 70.0, 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+	await location_banner_tween.finished
+	await get_tree().create_timer(2.6).timeout
+
+	var fade = create_tween().set_parallel(true)
+	fade.tween_property(location_banner, "modulate:a", 0.0, 0.50).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fade.tween_property(location_banner, "position:y", 85.0, 0.50).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await fade.finished
+	if current_zone_name == loc_name:
+		location_banner.visible = false
 
 # ==================== PAUSE MENU & CONTROLS GUIDE ====================
 
