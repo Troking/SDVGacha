@@ -627,18 +627,16 @@ func _build_ancient_ruins_poi() -> void:
 # ==================== NEW EXPANSION TERRITORIES ====================
 
 func _build_blighted_undead_lands() -> void:
-	# 1. Central Crypt Mausoleum
-	var tomb_main = _spawn_structure(SCENE_UNDEAD_TOMB, Vector3(-48.0, 2.6, -78.0), Vector3(0, 30, 0), Vector3(1.3, 1.3, 1.3), true)
-	_setup_trimesh_collision(tomb_main)
-	_add_lantern_light(tomb_main, Vector3(0, 1.6, 0), Color(0.35, 1.0, 0.45), 2.2, 9.0)
+	# 1. Central Crypt Mausoleum (Destructible)
+	var tomb_main = _spawn_destructible(SCENE_UNDEAD_TOMB, Vector3(-48.0, 2.6, -78.0), Vector3(0, 30, 0), Vector3(1.3, 1.3, 1.3), DestructibleProp.PropType.TOMB, 240, true)
+	if tomb_main:
+		_add_lantern_light(tomb_main, Vector3(0, 1.6, 0), Color(0.35, 1.0, 0.45), 2.2, 9.0)
 
-	# 2. Secondary Tombs
-	var t2 = _spawn_structure(SCENE_UNDEAD_TOMB, Vector3(-36.0, 2.4, -68.0), Vector3(0, -45, 0), Vector3(1.0, 1.0, 1.0), true)
-	_setup_trimesh_collision(t2)
-	var t3 = _spawn_structure(SCENE_UNDEAD_TOMB, Vector3(-62.0, 2.8, -88.0), Vector3(0, 75, 0), Vector3(1.1, 1.1, 1.1), true)
-	_setup_trimesh_collision(t3)
+	# 2. Secondary Tombs (Destructible)
+	_spawn_destructible(SCENE_UNDEAD_TOMB, Vector3(-36.0, 2.4, -68.0), Vector3(0, -45, 0), Vector3(1.0, 1.0, 1.0), DestructibleProp.PropType.TOMB, 180, true)
+	_spawn_destructible(SCENE_UNDEAD_TOMB, Vector3(-62.0, 2.8, -88.0), Vector3(0, 75, 0), Vector3(1.1, 1.1, 1.1), DestructibleProp.PropType.TOMB, 180, true)
 
-	# 3. Bone Spires framing the blighted area
+	# 3. Bone Spires framing the blighted area (Destructible)
 	var spires = [
 		Vector3(-54.0, 2.8, -72.0),
 		Vector3(-42.0, 2.4, -72.0),
@@ -648,9 +646,9 @@ func _build_blighted_undead_lands() -> void:
 		Vector3(-66.0, 3.2, -78.0)
 	]
 	for pos in spires:
-		var s = _spawn_structure(SCENE_BONE_SPIRE, pos, Vector3(0, randf() * 360, 0), Vector3(1.0, 1.1, 1.0), true)
-		_setup_trimesh_collision(s)
-		_add_lantern_light(s, Vector3(0, 3.2, 0), Color(0.75, 0.25, 0.95), 1.6, 7.0)
+		var s = _spawn_destructible(SCENE_BONE_SPIRE, pos, Vector3(0, randf() * 360, 0), Vector3(1.0, 1.1, 1.0), DestructibleProp.PropType.BONE_SPIRE, 120, true)
+		if s:
+			_add_lantern_light(s, Vector3(0, 3.2, 0), Color(0.75, 0.25, 0.95), 1.6, 7.0)
 
 	# 4. Necrotic Soul Mist (creeping green and purple ground fog)
 	var mist = CPUParticles3D.new()
@@ -678,7 +676,7 @@ func _build_blighted_undead_lands() -> void:
 	mist.color_ramp = grad
 	add_child(mist)
 
-	# 5. Twisted Dead Trees in the Corrupted Lands
+	# 5. Twisted Dead Trees in the Corrupted Lands (Destructible)
 	var dead_tree_positions = [
 		Vector3(-40.0, 2.5, -74.0),
 		Vector3(-52.0, 2.7, -66.0),
@@ -687,11 +685,25 @@ func _build_blighted_undead_lands() -> void:
 		Vector3(-56.0, 2.8, -96.0)
 	]
 	for dt_pos in dead_tree_positions:
-		_build_dead_tree(dt_pos, randf_range(0.9, 1.3))
+		_spawn_dead_tree_destructible(dt_pos, randf_range(0.9, 1.3))
 
-func _build_dead_tree(pos: Vector3, scale_mult: float = 1.0) -> Node3D:
+func _spawn_dead_tree_destructible(pos: Vector3, scale_mult: float = 1.0) -> DestructibleProp:
+	var gh = get_terrain_height(pos.x, pos.z)
+	pos.y = gh - 0.08
+	var d_prop = DestructibleProp.new()
+	d_prop.position = pos
+	d_prop.prop_type = DestructibleProp.PropType.DEAD_TREE
+	d_prop.max_health = 80
+	d_prop.current_health = 80
+	add_child(d_prop)
+
+	var visual = _build_dead_tree_mesh(scale_mult)
+	d_prop.add_child(visual)
+	_setup_destructible_collision(d_prop, DestructibleProp.PropType.DEAD_TREE)
+	return d_prop
+
+func _build_dead_tree_mesh(scale_mult: float = 1.0) -> Node3D:
 	var tree = Node3D.new()
-	tree.position = pos
 	var mat_bark = StandardMaterial3D.new()
 	mat_bark.albedo_color = Color(0.15, 0.13, 0.17)
 	mat_bark.roughness = 0.95
@@ -722,11 +734,10 @@ func _build_dead_tree(pos: Vector3, scale_mult: float = 1.0) -> Node3D:
 		branch.rotation = Vector3(0.55 * sin(ang), ang, 0.55 * cos(ang))
 		tree.add_child(branch)
 
-	add_child(tree)
 	return tree
 
 func _build_cyber_city() -> void:
-	# 1. Cyber Skyscraper Towers
+	# 1. Cyber Skyscraper Towers (Destructible)
 	var towers = [
 		{"pos": Vector3(45.0, 3.5, 90.0), "scale": Vector3(1.15, 1.15, 1.15), "rot": 0.0},
 		{"pos": Vector3(28.0, 3.2, 78.0), "scale": Vector3(0.95, 0.95, 0.95), "rot": 35.0},
@@ -734,12 +745,12 @@ func _build_cyber_city() -> void:
 		{"pos": Vector3(42.0, 3.6, 106.0), "scale": Vector3(1.25, 1.25, 1.25), "rot": 180.0}
 	]
 	for t_data in towers:
-		var tower = _spawn_structure(SCENE_CYBER_TOWER, t_data["pos"], Vector3(0, t_data["rot"], 0), t_data["scale"], true)
-		_setup_trimesh_collision(tower)
-		_add_lantern_light(tower, Vector3(0, 8.0, 2.5), Color(0.0, 0.95, 1.0), 2.4, 14.0) # Cyber cyan beacon
-		_add_lantern_light(tower, Vector3(0, 14.0, -2.5), Color(1.0, 0.15, 0.75), 2.2, 12.0) # Cyber magenta beacon
+		var tower = _spawn_destructible(SCENE_CYBER_TOWER, t_data["pos"], Vector3(0, t_data["rot"], 0), t_data["scale"], DestructibleProp.PropType.CYBER_TOWER, 350, true)
+		if tower:
+			_add_lantern_light(tower, Vector3(0, 8.0, 2.5), Color(0.0, 0.95, 1.0), 2.4, 14.0) # Cyber cyan beacon
+			_add_lantern_light(tower, Vector3(0, 14.0, -2.5), Color(1.0, 0.15, 0.75), 2.2, 12.0) # Cyber magenta beacon
 
-	# 2. Cyber Streetlamps lining the Neon Boulevard
+	# 2. Cyber Streetlamps lining the Neon Boulevard (Destructible)
 	var cyber_lamps = [
 		Vector3(36.0, 3.3, 74.0),
 		Vector3(44.0, 3.4, 74.0),
@@ -749,9 +760,9 @@ func _build_cyber_city() -> void:
 		Vector3(44.0, 3.6, 98.0)
 	]
 	for pos in cyber_lamps:
-		var lamp = _spawn_structure(SCENE_CYBER_LAMP, pos, Vector3(0, 90.0, 0), Vector3.ONE, true)
-		_setup_trimesh_collision(lamp)
-		_add_lantern_light(lamp, Vector3(1.15, 4.15, 0), Color(0.0, 0.95, 1.0), 1.8, 8.0)
+		var lamp = _spawn_destructible(SCENE_CYBER_LAMP, pos, Vector3(0, 90.0, 0), Vector3.ONE, DestructibleProp.PropType.CYBER_LAMP, 70, true)
+		if lamp:
+			_add_lantern_light(lamp, Vector3(1.15, 4.15, 0), Color(0.0, 0.95, 1.0), 1.8, 8.0)
 
 	# 3. Holographic Neon Road Bollards
 	var mat_cyan_neon = StandardMaterial3D.new()
@@ -1333,6 +1344,49 @@ func _setup_destructible_collision(d_prop: DestructibleProp, p_type: Destructibl
 			col_c.shape = box_c
 			col_c.position = Vector3(0.0, 0.6, 0.0)
 			sb.add_child(col_c)
+
+		DestructibleProp.PropType.TOMB:
+			var col_t = CollisionShape3D.new()
+			var box_t = BoxShape3D.new()
+			box_t.size = Vector3(3.2, 2.6, 3.2)
+			col_t.shape = box_t
+			col_t.position = Vector3(0.0, 1.3, 0.0)
+			sb.add_child(col_t)
+
+		DestructibleProp.PropType.BONE_SPIRE:
+			var col_bs = CollisionShape3D.new()
+			var cyl_bs = CylinderShape3D.new()
+			cyl_bs.radius = 0.65
+			cyl_bs.height = 4.8
+			col_bs.shape = cyl_bs
+			col_bs.position = Vector3(0.0, 2.4, 0.0)
+			sb.add_child(col_bs)
+
+		DestructibleProp.PropType.CYBER_TOWER:
+			var col_ct = CollisionShape3D.new()
+			var box_ct = BoxShape3D.new()
+			box_ct.size = Vector3(4.5, 12.0, 4.5)
+			col_ct.shape = box_ct
+			col_ct.position = Vector3(0.0, 6.0, 0.0)
+			sb.add_child(col_ct)
+
+		DestructibleProp.PropType.CYBER_LAMP:
+			var col_cl = CollisionShape3D.new()
+			var cyl_cl = CylinderShape3D.new()
+			cyl_cl.radius = 0.35
+			cyl_cl.height = 4.2
+			col_cl.shape = cyl_cl
+			col_cl.position = Vector3(0.0, 2.1, 0.0)
+			sb.add_child(col_cl)
+
+		DestructibleProp.PropType.DEAD_TREE:
+			var col_dt = CollisionShape3D.new()
+			var cyl_dt = CylinderShape3D.new()
+			cyl_dt.radius = 0.45
+			cyl_dt.height = 4.0
+			col_dt.shape = cyl_dt
+			col_dt.position = Vector3(0.0, 2.0, 0.0)
+			sb.add_child(col_dt)
 
 	d_prop.add_child(sb)
 

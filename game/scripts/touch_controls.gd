@@ -154,6 +154,21 @@ func update_skill_cooldown(current: float, max_cd: float) -> void:
 	skill_max_cooldown = max_cd
 	queue_redraw()
 
+func set_character_element(char_id: String) -> void:
+	for btn in touch_buttons:
+		if btn["id"] == "skill":
+			if char_id == "ellen":
+				btn["label"] = "❄️"
+				btn["base_color"] = Color(0.15, 0.55, 0.85, 0.75)
+				btn["press_color"] = Color(0.35, 0.85, 1.0, 0.95)
+				btn["border_color"] = Color(0.7, 0.95, 1.0, 0.9)
+			else:
+				btn["label"] = "🔥"
+				btn["base_color"] = Color(0.9, 0.25, 0.2, 0.70)
+				btn["press_color"] = Color(1.0, 0.45, 0.35, 0.95)
+				btn["border_color"] = Color(1.0, 0.8, 0.7, 0.9)
+	queue_redraw()
+
 func _input(event: InputEvent) -> void:
 	if not is_touch_enabled:
 		return

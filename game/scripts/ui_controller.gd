@@ -73,6 +73,7 @@ var flash_tween: Tween = null
 var toast_container: VBoxContainer = null
 var potion_btn_label: Label = null
 var active_nav_tab: String = "stats" # "stats", "equip", "inventory", "about"
+var active_heroine_id: String = "hutao"
 var inventory_filter: String = "all" # "all", "weapon", "shield", "boots", "potion"
 
 var filter_btn_container: HBoxContainer = null
@@ -1375,8 +1376,12 @@ func update_skill_cooldown(remaining: float, total: float) -> void:
 	if not skill_badge_label:
 		return
 	if remaining <= 0.05:
-		skill_badge_label.text = "✦ [E] Пламя: ГОТОВ"
-		skill_badge_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.1))
+		if active_heroine_id == "ellen":
+			skill_badge_label.text = "✦ [E] Морозный Шквал: ГОТОВ"
+			skill_badge_label.add_theme_color_override("font_color", Color(0.3, 0.9, 1.0))
+		else:
+			skill_badge_label.text = "✦ [E] Пламя: ГОТОВ"
+			skill_badge_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.1))
 	else:
 		skill_badge_label.text = "✦ [E] " + str(snapped(remaining, 0.1)) + "с"
 		skill_badge_label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.65))
@@ -1474,6 +1479,9 @@ func _setup_party_hud() -> void:
 
 func on_party_switched(char_id: String, slot_idx: int) -> void:
 	active_squad_slot = slot_idx
+	active_heroine_id = char_id
+	if touch_controls and touch_controls.has_method("set_character_element"):
+		touch_controls.set_character_element(char_id)
 	# Update active slot styling
 	for i in range(party_slot_panels.size()):
 		var p = party_slot_panels[i]

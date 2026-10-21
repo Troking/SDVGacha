@@ -10,7 +10,8 @@ enum Type {
 	PYRO,
 	CRIT,
 	PLAYER_HURT,
-	HEAL
+	HEAL,
+	CRYO
 }
 
 func spawn_physical(parent: Node, pos: Vector3, amount: int) -> void:
@@ -18,6 +19,9 @@ func spawn_physical(parent: Node, pos: Vector3, amount: int) -> void:
 
 func spawn_pyro(parent: Node, pos: Vector3, amount: int) -> void:
 	_spawn(parent, pos, amount, Type.PYRO)
+
+func spawn_cryo(parent: Node, pos: Vector3, amount: int) -> void:
+	_spawn(parent, pos, amount, Type.CRYO)
 
 func spawn_crit(parent: Node, pos: Vector3, amount: int) -> void:
 	_spawn(parent, pos, amount, Type.CRIT)
@@ -59,6 +63,12 @@ func _spawn(parent: Node, pos: Vector3, amount: int, type: Type) -> void:
 			label.font_size = 45
 			label.outline_size = 11
 			label.outline_modulate = Color(0.3, 0.02, 0.0, 0.95)
+		Type.CRYO:
+			label.text = "❄ " + str(amount)
+			label.modulate = Color(0.35, 0.90, 1.0, 1.0)
+			label.font_size = 46
+			label.outline_size = 11
+			label.outline_modulate = Color(0.02, 0.12, 0.28, 0.95)
 		Type.CRIT:
 			label.text = "💥 " + str(amount) + "!"
 			label.modulate = Color(1.0, 0.2, 0.05, 1.0)

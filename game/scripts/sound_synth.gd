@@ -70,13 +70,38 @@ var pyro_skill_voices: Array[AudioStream] = []
 var pyro_idle_voices: Array[AudioStream] = []
 var chest_voices: Array[AudioStream] = []
 
+# Active Heroine Voice Routing System
+var active_heroine: String = "hutao"
+
+func set_active_heroine(heroine_id: String) -> void:
+	var h = heroine_id.to_lower()
+	if "ellen" in h:
+		active_heroine = "ellen"
+	else:
+		active_heroine = "hutao"
+
 # Party Switch & Companion Voices (Ellen Joe & Hu Tao)
 var ellen_switch_stream: AudioStream = null
 var ht_switch_stream: AudioStream = null
 var ellen_vn_greet_stream: AudioStream = null
 var ellen_vn_accept_stream: AudioStream = null
 var ellen_attack_voices: Array[AudioStream] = []
+var ellen_finisher_voices: Array[AudioStream] = []
+var ellen_skill_voices: Array[AudioStream] = []
+var ellen_jump_voices: Array[AudioStream] = []
+var ellen_land_voices: Array[AudioStream] = []
+var ellen_dash_voices: Array[AudioStream] = []
+var ellen_hurt_voices: Array[AudioStream] = []
 var ellen_idle_voices: Array[AudioStream] = []
+var ellen_climb_voices: Array[AudioStream] = []
+var ellen_chest_voices: Array[AudioStream] = []
+var ellen_glider_voices: Array[AudioStream] = []
+var ellen_lvlup_voices: Array[AudioStream] = []
+
+# Cryo / Ice Elemental Audio Streams
+var cryo_burst_stream: AudioStream = null
+var ice_shatter_stream: AudioStream = null
+var frost_whoosh_stream: AudioStream = null
 
 # Heroine (Player) Dialogue Vocal Streams
 var heroine_dialogue_start_stream: AudioStream = null
@@ -273,14 +298,37 @@ func _ready() -> void:
 	_add_audio(chest_voices, "res://assets/sounds/voice/ht_chest_2.ogg")
 	_add_audio(chest_voices, "res://assets/sounds/voice/ht_chest_3.ogg")
 
-	# Ellen Joe & Switch Voicelines
+	# Ellen Joe Seiyuu Vocalization Pools (Aoi Yuuki cool shark maid)
 	ellen_switch_stream = _load_audio("res://assets/sounds/voice/ellen_switch.mp3")
 	ht_switch_stream = _load_audio("res://assets/sounds/voice/ht_switch.mp3")
 	ellen_vn_greet_stream = _load_audio("res://assets/sounds/voice/ellen_vn_greet.mp3")
 	ellen_vn_accept_stream = _load_audio("res://assets/sounds/voice/ellen_vn_accept.mp3")
 	_add_audio(ellen_attack_voices, "res://assets/sounds/voice/ellen_attack_1.mp3")
 	_add_audio(ellen_attack_voices, "res://assets/sounds/voice/ellen_attack_2.mp3")
+	_add_audio(ellen_attack_voices, "res://assets/sounds/voice/ellen_attack_3.mp3")
+	_add_audio(ellen_finisher_voices, "res://assets/sounds/voice/ellen_finisher_1.mp3")
+	_add_audio(ellen_finisher_voices, "res://assets/sounds/voice/ellen_finisher_2.mp3")
+	_add_audio(ellen_skill_voices, "res://assets/sounds/voice/ellen_skill_cryo_1.mp3")
+	_add_audio(ellen_skill_voices, "res://assets/sounds/voice/ellen_skill_cryo_2.mp3")
+	_add_audio(ellen_jump_voices, "res://assets/sounds/voice/ellen_jump_1.mp3")
+	_add_audio(ellen_jump_voices, "res://assets/sounds/voice/ellen_jump_2.mp3")
+	_add_audio(ellen_land_voices, "res://assets/sounds/voice/ellen_land_1.mp3")
+	_add_audio(ellen_dash_voices, "res://assets/sounds/voice/ellen_dash_1.mp3")
+	_add_audio(ellen_dash_voices, "res://assets/sounds/voice/ellen_dash_2.mp3")
+	_add_audio(ellen_climb_voices, "res://assets/sounds/voice/ellen_climb_1.mp3")
+	_add_audio(ellen_hurt_voices, "res://assets/sounds/voice/ellen_hurt_1.mp3")
+	_add_audio(ellen_hurt_voices, "res://assets/sounds/voice/ellen_hurt_2.mp3")
+	_add_audio(ellen_idle_voices, "res://assets/sounds/voice/ellen_idle_1.mp3")
+	_add_audio(ellen_idle_voices, "res://assets/sounds/voice/ellen_idle_2.mp3")
 	_add_audio(ellen_idle_voices, "res://assets/sounds/voice/ellen_idle.mp3")
+	_add_audio(ellen_chest_voices, "res://assets/sounds/voice/ellen_chest_1.mp3")
+	_add_audio(ellen_glider_voices, "res://assets/sounds/voice/ellen_glider_1.mp3")
+	_add_audio(ellen_lvlup_voices, "res://assets/sounds/voice/ellen_lvlup_1.mp3")
+
+	# Cryo Elemental SFX
+	cryo_burst_stream = _load_audio("res://assets/sounds/cryo_burst.wav")
+	ice_shatter_stream = _load_audio("res://assets/sounds/ice_shatter.wav")
+	frost_whoosh_stream = _load_audio("res://assets/sounds/frost_whoosh.wav")
 
 	# Heroine Dialogue Voice Streams
 	heroine_dialogue_start_stream = _load_audio("res://assets/sounds/voice/heroine_dialogue_start.mp3")
@@ -465,7 +513,10 @@ func play_chest_open(node: Node) -> void:
 		play_voice_chest(node)
 
 func play_voice_chest(_node: Node = null) -> void:
-	_play_voice_stream(chest_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_chest_voices, true)
+	else:
+		_play_voice_stream(chest_voices, true)
 
 func play_chest_vanish(node: Node) -> void:
 	_play_clip(node, chest_vanish_stream, -3.0)
@@ -482,6 +533,15 @@ func play_dash(node: Node) -> void:
 func play_flame_burst(node: Node) -> void:
 	_play_clip(node, flame_burst_stream, -1.5)
 
+func play_cryo_burst(node: Node) -> void:
+	_play_clip(node, cryo_burst_stream, 0.0)
+
+func play_ice_shatter(node: Node) -> void:
+	_play_clip(node, ice_shatter_stream, -2.0)
+
+func play_frost_whoosh(node: Node) -> void:
+	_play_clip(node, frost_whoosh_stream, -4.0)
+
 func play_level_up_fanfare(node: Node) -> void:
 	_play_clip(node, level_up_stream, -4.0)
 
@@ -489,37 +549,70 @@ func play_glider_open(node: Node) -> void:
 	_play_clip(node, glider_open_stream, -10.0)
 
 func play_voice_glider(_node: Node = null) -> void:
-	_play_voice_stream(glider_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_glider_voices, true)
+	else:
+		_play_voice_stream(glider_voices, true)
 
 func play_voice_pyro_skill(_node: Node = null) -> void:
 	_play_voice_stream(pyro_skill_voices, true)
 
+func play_voice_cryo_skill(_node: Node = null) -> void:
+	_play_voice_stream(ellen_skill_voices, true)
+
 func play_voice_pyro_idle(_node: Node = null) -> void:
-	_play_voice_stream(pyro_idle_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_idle_voices)
+	else:
+		_play_voice_stream(pyro_idle_voices, true)
 
 func play_voice_idle(_node: Node = null) -> void:
-	_play_voice_stream(idle_voices)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_idle_voices)
+	else:
+		_play_voice_stream(idle_voices)
 
 func play_voice_attack(_node: Node = null) -> void:
-	_play_voice_stream(attack_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_attack_voices, true)
+	else:
+		_play_voice_stream(attack_voices, true)
 
 func play_voice_finisher(_node: Node = null) -> void:
-	_play_voice_stream(finisher_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_finisher_voices, true)
+	else:
+		_play_voice_stream(finisher_voices, true)
 
 func play_voice_climb(_node: Node = null) -> void:
-	_play_voice_stream(climb_voices)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_climb_voices)
+	else:
+		_play_voice_stream(climb_voices)
 
 func play_voice_hurt(_node: Node = null) -> void:
-	_play_voice_stream(hurt_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_hurt_voices, true)
+	else:
+		_play_voice_stream(hurt_voices, true)
 
 func play_voice_jump(_node: Node = null) -> void:
-	_play_voice_stream(jump_voices)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_jump_voices)
+	else:
+		_play_voice_stream(jump_voices)
 
 func play_voice_land(_node: Node = null) -> void:
-	_play_voice_stream(land_voices)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_land_voices)
+	else:
+		_play_voice_stream(land_voices)
 
 func play_voice_dash(_node: Node = null) -> void:
-	_play_voice_stream(dash_voices)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_dash_voices, true)
+	else:
+		_play_voice_stream(dash_voices)
 
 func play_voice_menu_open(_node: Node = null) -> void:
 	_play_voice_stream(menu_open_voices, true)
@@ -528,7 +621,10 @@ func play_voice_menu_close(_node: Node = null) -> void:
 	_play_voice_stream(menu_close_voices, true)
 
 func play_voice_lvlup(_node: Node = null) -> void:
-	_play_voice_stream(lvlup_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_lvlup_voices, true)
+	else:
+		_play_voice_stream(lvlup_voices, true)
 
 func play_voice_menu_idle(_node: Node = null) -> void:
 	_play_voice_stream(menu_idle_voices, true)
@@ -715,8 +811,10 @@ func play_water_splash_jump(node: Node3D) -> void:
 	_play_clip_3d(node, water_splash_jump_stream, -10.0, randf_range(0.95, 1.05))
 
 func play_voice_water_splash(_node: Node3D = null) -> void:
-	# Hu Tao cute surprise exclamation when hitting water ("Оп!", "Ух!")
-	_play_voice_stream(jump_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_jump_voices, true)
+	else:
+		_play_voice_stream(jump_voices, true)
 
 # ==================== DESTRUCTIBLE ENVIRONMENT AUDIO ====================
 

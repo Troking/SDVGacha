@@ -8,15 +8,20 @@ class_name DestructibleProp
 ## and dynamic physics collapses with exploding RigidBody3D debris chunks.
 
 enum PropType {
-	TREE,      # Sakura trees: snaps at trunk, topples flat over, leaves stump & blossom burst
-	BAMBOO,    # Bamboo clusters: snaps apart into bamboo stalks with lush leaf scatter
-	SHOP,      # Shop houses: collapses into timber beams, roof shingles, and stone rubble
-	PAVILION,  # Tea pavilions: collapses into wood pillars, lattice screens, and roof tiles
-	TORII,     # Torii gates: fractures into red lacquered timber beams and black roof caps
-	PAGODA,    # Pagodas: multi-chunk dramatic collapse of pagoda tiers and curved tiles
-	LANTERN,   # Stone lanterns: granite shatter and bouncing stone blocks
-	CRATE,     # Cargo crates & sake barrels: explodes into cedar wood planks and loot
-	BRIDGE     # Arched Moon Bridge: fractures into timber beams, stone piers, collapses into river
+	TREE,        # Sakura trees: snaps at trunk, topples flat over, leaves stump & blossom burst
+	BAMBOO,      # Bamboo clusters: snaps apart into bamboo stalks with lush leaf scatter
+	SHOP,        # Shop houses: collapses into timber beams, roof shingles, and stone rubble
+	PAVILION,    # Tea pavilions: collapses into wood pillars, lattice screens, and roof tiles
+	TORII,       # Torii gates: fractures into red lacquered timber beams and black roof caps
+	PAGODA,      # Pagodas: multi-chunk dramatic collapse of pagoda tiers and curved tiles
+	LANTERN,     # Stone lanterns: granite shatter and bouncing stone blocks
+	CRATE,       # Cargo crates & sake barrels: explodes into cedar wood planks and loot
+	BRIDGE,      # Arched Moon Bridge: fractures into timber beams, stone piers, collapses into river
+	TOMB,        # Blighted Undead Crypt & Sarcophagi: collapses into obsidian slabs, bones & soul mist
+	BONE_SPIRE,  # Undead Bone Spires: fractures into calcified ribs, bone shards & violet flames
+	CYBER_TOWER, # Neo-Cyber Skyscraper Towers: collapses into metallic tech girders & glowing neon
+	CYBER_LAMP,  # Cyber Streetlamps & Bollards: shatters into cyber alloy & sparks
+	DEAD_TREE    # Blighted Twisted Dead Trees: snaps into rotten ashwood logs & soot
 }
 
 @export var prop_type: PropType = PropType.TREE
@@ -55,10 +60,14 @@ func take_damage(amount: int, is_pyro: bool = false, is_heavy: bool = false, hit
 
 	# Audio feedback based on prop material
 	match prop_type:
-		PropType.LANTERN:
+		PropType.LANTERN, PropType.TOMB:
 			SoundSynth.play_material_hit(self, "stone")
+		PropType.BONE_SPIRE:
+			SoundSynth.play_material_hit(self, "bone")
 		PropType.TORII:
 			SoundSynth.play_material_hit(self, "metal")
+		PropType.CYBER_TOWER, PropType.CYBER_LAMP:
+			SoundSynth.play_material_hit(self, "cyber")
 		PropType.SHOP, PropType.PAVILION, PropType.PAGODA:
 			SoundSynth.play_material_hit(self, "building")
 		PropType.BRIDGE:
@@ -103,18 +112,29 @@ func _spawn_hit_particles(hit_dir: Vector3, is_pyro: bool, is_heavy: bool) -> vo
 	var mat = StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
-	if prop_type == PropType.LANTERN:
-		# Stone chips
+	if prop_type == PropType.LANTERN or prop_type == PropType.TOMB:
+		# Stone chips / Obsidian dust
 		p_mesh.size = Vector3(0.08, 0.08, 0.08)
-		mat.albedo_color = Color(0.65, 0.63, 0.60)
+		mat.albedo_color = Color(0.25, 0.22, 0.28) if prop_type == PropType.TOMB else Color(0.65, 0.63, 0.60)
+	elif prop_type == PropType.BONE_SPIRE:
+		# Calcified bone shards & violet sparks
+		p_mesh.size = Vector3(0.06, 0.12, 0.06)
+		mat.albedo_color = Color(0.85, 0.82, 0.74)
+	elif prop_type == PropType.CYBER_TOWER or prop_type == PropType.CYBER_LAMP:
+		# Tech sparks & neon fragments
+		p_mesh.size = Vector3(0.05, 0.05, 0.12)
+		mat.albedo_color = Color(0.0, 0.95, 1.0)
 	elif prop_type == PropType.CRATE:
 		# Wood splinters
 		p_mesh.size = Vector3(0.08, 0.08, 0.20)
 		mat.albedo_color = Color(0.44, 0.30, 0.18)
-	elif prop_type == PropType.TREE or prop_type == PropType.BAMBOO:
+	elif prop_type == PropType.TREE or prop_type == PropType.BAMBOO or prop_type == PropType.DEAD_TREE:
 		# Wood splinters and leaves
 		p_mesh.size = Vector3(0.06, 0.12, 0.04)
-		mat.albedo_color = Color(0.98, 0.65, 0.75) if prop_type == PropType.TREE else Color(0.45, 0.78, 0.35)
+		if prop_type == PropType.DEAD_TREE:
+			mat.albedo_color = Color(0.18, 0.16, 0.19)
+		else:
+			mat.albedo_color = Color(0.98, 0.65, 0.75) if prop_type == PropType.TREE else Color(0.45, 0.78, 0.35)
 	else:
 		# Building wood/plaster dust
 		p_mesh.size = Vector3(0.10, 0.10, 0.05)
@@ -150,7 +170,7 @@ func destroy(hit_dir: Vector3 = Vector3.FORWARD, is_heavy: bool = false) -> void
 				if c is CollisionShape3D:
 					c.set_deferred("disabled", true)
 
-	if prop_type == PropType.TREE:
+	if prop_type == PropType.TREE or prop_type == PropType.DEAD_TREE:
 		_felling_tree_sequence(hit_dir, is_heavy)
 	elif prop_type == PropType.BAMBOO:
 		_felling_bamboo_sequence(hit_dir, is_heavy)
@@ -463,6 +483,18 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 		PropType.BRIDGE:
 			chunk_count = 24
 			w = 4.0; h = 2.4; d = 6.0
+		PropType.TOMB:
+			chunk_count = 16
+			w = 2.4; h = 2.8; d = 2.4
+		PropType.BONE_SPIRE:
+			chunk_count = 12
+			w = 0.8; h = 4.2; d = 0.8
+		PropType.CYBER_TOWER:
+			chunk_count = 24
+			w = 3.5; h = 9.0; d = 3.5
+		PropType.CYBER_LAMP:
+			chunk_count = 8
+			w = 0.6; h = 2.8; d = 0.6
 
 	# Spawn Dynamic Physics RigidBody3D Debris Chunks
 	for i in range(chunk_count):
@@ -481,7 +513,26 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 		elif prop_type == PropType.CRATE:
 			piece_type = 0 # All timber for crates
 
-		if piece_type == 0:
+		if prop_type == PropType.TOMB:
+			# Obsidian stone & bone fragments
+			b_mesh.size = Vector3(randf_range(0.35, 0.7), randf_range(0.2, 0.45), randf_range(0.35, 0.7))
+			mat.albedo_color = Color(0.18, 0.16, 0.20) if piece_type < 2 else Color(0.85, 0.82, 0.74)
+		elif prop_type == PropType.BONE_SPIRE:
+			# Calcified ribs & bone horns
+			b_mesh.size = Vector3(randf_range(0.12, 0.28), randf_range(0.5, 1.2), randf_range(0.12, 0.28))
+			mat.albedo_color = Color(0.88, 0.85, 0.78)
+		elif prop_type == PropType.CYBER_TOWER or prop_type == PropType.CYBER_LAMP:
+			# Tech alloy & glowing neon panels
+			b_mesh.size = Vector3(randf_range(0.18, 0.35), randf_range(0.35, 1.4), randf_range(0.18, 0.35))
+			mat.metallic = 0.85
+			mat.roughness = 0.25
+			if piece_type == 1:
+				mat.albedo_color = Color(0.0, 0.95, 1.0)
+				mat.emission_enabled = true
+				mat.emission = Color(0.0, 0.95, 1.0)
+			else:
+				mat.albedo_color = Color(0.14, 0.16, 0.22)
+		elif piece_type == 0:
 			# Timber beam
 			b_mesh.size = Vector3(randf_range(0.25, 0.40), randf_range(0.25, 0.40), randf_range(1.1, 2.2))
 			if prop_type == PropType.TORII:

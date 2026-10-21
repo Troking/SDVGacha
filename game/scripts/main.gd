@@ -14,6 +14,7 @@ var time_of_day: float = 0.25 # Starts at 06:00 AM (Glorious Dawn)
 var pending_monsters: Array[Dictionary] = []
 var spawned_monsters: Array[Node3D] = []
 var stream_check_timer: float = 0.0
+var lantern_update_timer: float = 0.0
 
 const MONSTER_SPAWN_RADIUS = 35.0
 
@@ -474,7 +475,7 @@ func _check_player_current_biome() -> void:
 	elif x < -6.0 and z >= -55.0 and z < 18.0:
 		ui.show_location_banner("Долина Сакуры", "Священное святилище Кицунэ")
 
-func _update_day_night_cycle(_delta: float) -> void:
+func _update_day_night_cycle(delta: float) -> void:
 	if not sun or not env_node or not env_node.environment:
 		return
 
@@ -562,8 +563,11 @@ func _update_day_night_cycle(_delta: float) -> void:
 	if env.sky and env.sky.sky_material and env.sky.sky_material is PanoramaSkyMaterial:
 		(env.sky.sky_material as PanoramaSkyMaterial).energy_multiplier = sky_e
 
-	if asian_world and asian_world.has_method("update_lantern_time_of_day"):
-		asian_world.update_lantern_time_of_day(night_factor)
+	lantern_update_timer += delta
+	if lantern_update_timer >= 0.5:
+		lantern_update_timer = 0.0
+		if asian_world and asian_world.has_method("update_lantern_time_of_day"):
+			asian_world.update_lantern_time_of_day(night_factor)
 
 func _setup_window_branding() -> void:
 	DisplayServer.window_set_title("SDVGacha — Anime Action RPG")

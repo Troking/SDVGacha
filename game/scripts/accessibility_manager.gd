@@ -55,24 +55,24 @@ func speak(text: String, interrupt: bool = true, defer_if_hero_speaking: bool = 
 	_execute_speak(text, interrupt)
 
 ## Queues speech to play after the active hero voice line finishes + a natural pause
-func speak_after_voice(text: String, pause_delay: float = 0.25) -> void:
+func speak_after_voice(text: String, pause_delay: float = 0.25, retry_count: int = 0) -> void:
 	if not tts_enabled or text.is_empty():
 		return
 
-	if not SoundSynth.has_method("is_voice_playing") or not SoundSynth.is_voice_playing():
+	if not SoundSynth.has_method("is_voice_playing") or not SoundSynth.is_voice_playing() or retry_count >= 2:
 		_execute_speak(text, true)
 		return
 
 	if pending_tts_tween:
 		pending_tts_tween.kill()
 
-	var wait_time = SoundSynth.get_voice_time_remaining() + pause_delay
+	var wait_time = clamp(SoundSynth.get_voice_time_remaining() + pause_delay, 0.1, 2.5)
 	current_queued_text = text
 	pending_tts_tween = create_tween()
 	pending_tts_tween.tween_interval(wait_time)
 	pending_tts_tween.tween_callback(func():
-		if SoundSynth.is_voice_playing():
-			speak_after_voice(current_queued_text, pause_delay)
+		if SoundSynth.is_voice_playing() and retry_count < 2:
+			speak_after_voice(current_queued_text, pause_delay, retry_count + 1)
 		else:
 			_execute_speak(current_queued_text, false)
 	)

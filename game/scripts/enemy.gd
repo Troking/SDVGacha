@@ -326,7 +326,7 @@ func attack_player() -> void:
 		return
 	can_attack = true
 
-func take_damage(dmg: int, is_pyro: bool = false, is_crit: bool = false) -> void:
+func take_damage(dmg: int, is_pyro: bool = false, is_crit: bool = false, is_cryo: bool = false) -> void:
 	if is_dead:
 		return
 	current_hp -= dmg
@@ -336,13 +336,15 @@ func take_damage(dmg: int, is_pyro: bool = false, is_crit: bool = false) -> void
 	var parent = get_parent()
 	if is_crit:
 		DamageNumbers.spawn_crit(parent, global_position + Vector3(0, 0.4, 0), dmg)
+	elif is_cryo:
+		DamageNumbers.spawn_cryo(parent, global_position + Vector3(0, 0.4, 0), dmg)
 	elif is_pyro:
 		DamageNumbers.spawn_pyro(parent, global_position + Vector3(0, 0.4, 0), dmg)
 	else:
 		DamageNumbers.spawn_physical(parent, global_position + Vector3(0, 0.4, 0), dmg)
 
-	# White-hot / fiery impact flash on enemy cel-shader
-	var flash_col = Color(1.0, 0.45, 0.1) if is_pyro else Color(1.0, 0.95, 0.85)
+	# White-hot / fiery / icy impact flash on enemy cel-shader
+	var flash_col = Color(0.35, 0.90, 1.0) if is_cryo else (Color(1.0, 0.45, 0.1) if is_pyro else Color(1.0, 0.95, 0.85))
 	for m in visual.find_children("*", "MeshInstance3D", true, false):
 		if m is MeshInstance3D and m.material_override is ShaderMaterial:
 			var smat = m.material_override as ShaderMaterial

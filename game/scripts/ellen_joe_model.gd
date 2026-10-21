@@ -19,6 +19,7 @@ var body_materials: Array[ShaderMaterial] = []
 # Attachments
 var headdress_node: Node3D = null
 var tail_node: Node3D = null
+var tail_material: ShaderMaterial = null
 var weapon_node: Node3D = null
 
 # Tail Sway Physics
@@ -97,6 +98,23 @@ func _setup_attachments() -> void:
 		tail_node.rotation_degrees = Vector3(15, 180, 0)
 		tail_node.scale = Vector3(1.15, 1.15, 1.15)
 		hips_att.add_child(tail_node)
+
+		# Apply organic undulating shark tail cel-shader
+		var shader = load("res://scripts/genshin_cel_shader.gdshader")
+		for m in tail_node.find_children("*", "MeshInstance3D", true, false):
+			if m is MeshInstance3D and m.mesh:
+				var toon = ShaderMaterial.new()
+				toon.shader = shader
+				toon.set_shader_parameter("is_tail", true)
+				toon.set_shader_parameter("tail_sway_strength", 1.0)
+				var mat = m.get_active_material(0)
+				if mat is StandardMaterial3D:
+					toon.set_shader_parameter("albedo_color", mat.albedo_color)
+					if mat.albedo_texture:
+						toon.set_shader_parameter("use_texture", true)
+						toon.set_shader_parameter("albedo_texture", mat.albedo_texture)
+				tail_material = toon
+				m.material_override = toon
 
 		# Add frost particles to tail tip
 		var frost = CPUParticles3D.new()
@@ -241,18 +259,30 @@ func _update_shark_tail(delta: float) -> void:
 		return
 
 	# Calculate movement inertia for the tail
-	var move_speed = (global_position - last_global_pos).length() / max(delta, 0.001)
+	var move_delta = (global_position - last_global_pos)
 	last_global_pos = global_position
-	tail_inertia = lerp(tail_inertia, move_speed, delta * 4.0)
+	var move_speed = move_delta.length() / max(delta, 0.001)
+	tail_inertia = lerp(tail_inertia, move_speed, delta * 5.0)
+
+	# Lateral inertia from turning and strafing
+	var right = global_transform.basis.x
+	var lat_accel = right.dot(move_delta) / max(delta, 0.001)
+	var target_inertia_x = clamp(-lat_accel * 0.12, -1.8, 1.8)
+
+	# Drive vertex shader parameters for organic supple shark swimming
+	if tail_material:
+		var sway_str = 0.70 + clamp(tail_inertia * 0.25, 0.0, 2.2)
+		tail_material.set_shader_parameter("tail_sway_strength", sway_str)
+		tail_material.set_shader_parameter("tail_inertia_x", target_inertia_x)
 
 	# Natural predatory shark tail swimming sway
 	# Slower, heavier, more organic in idle, swift in motion
-	var sway_freq = 1.6 + clamp(tail_inertia * 0.35, 0.0, 2.4)
-	var sway_amp = 14.0 + clamp(tail_inertia * 2.2, 0.0, 16.0)
+	var sway_freq = 1.8 + clamp(tail_inertia * 0.45, 0.0, 3.2)
+	var sway_amp = 8.0 + clamp(tail_inertia * 1.5, 0.0, 12.0)
 
 	var sway_y = sin(tail_sway_time * sway_freq) * sway_amp
-	var sway_roll = cos(tail_sway_time * (sway_freq * 0.85)) * (sway_amp * 0.30)
-	var sway_pitch = sin(tail_sway_time * (sway_freq * 1.7)) * 3.5
+	var sway_roll = cos(tail_sway_time * (sway_freq * 0.85)) * (sway_amp * 0.25)
+	var sway_pitch = sin(tail_sway_time * (sway_freq * 1.6)) * 2.8
 
 	tail_node.rotation_degrees = Vector3(
 		12.0 + sway_pitch,

@@ -37,6 +37,12 @@ uniform bool is_eye = false;
 uniform bool is_face = false;
 uniform vec2 eye_gaze_offset = vec2(0.0, 0.0);
 
+// Shark Tail Organic Swimming Physics (Ellen Joe)
+uniform bool is_tail = false;
+uniform float tail_sway_strength : hint_range(0.0, 3.0) = 1.0;
+uniform float tail_inertia_x = 0.0;
+uniform float tail_inertia_y = 0.0;
+
 void vertex() {
 	if (is_hair) {
 		// Roots are at Y ~ 1.44 (attached to head), tips flow down to Y ~ 0.55
@@ -65,6 +71,27 @@ void vertex() {
 		// Shift pupil and eye star slightly in the socket for gaze saccades
 		VERTEX.x += eye_gaze_offset.x * 0.006;
 		VERTEX.y += eye_gaze_offset.y * 0.005;
+	} else if (is_tail) {
+		// Base of shark tail is at Z ~ 0.0 (anchored seamlessly to Ellen's hips)
+		// Caudal fin tip is at Z ~ -1.35
+		float tip_factor = clamp(-VERTEX.z / 1.30, 0.0, 1.0);
+		float flex = tip_factor * tip_factor; // Quadratic flexibility: firmly attached at root, supple whip at tip
+
+		// 1. Organic predatory shark swimming oscillation (natural traveling sine wave)
+		float t = TIME * (2.6 + tail_sway_strength * 2.4);
+		float wave_phase = VERTEX.z * 3.4;
+		float swim_wave = sin(t + wave_phase) * 0.26 * flex * tail_sway_strength;
+		float swim_twist = cos(t + wave_phase * 0.8) * 0.08 * flex;
+
+		// 2. Lateral & vertical inertia from running, turning, jumping
+		VERTEX.x += swim_wave + tail_inertia_x * (flex * 0.45);
+		VERTEX.y += swim_twist + tail_inertia_y * (flex * 0.35);
+
+		// 3. Fin flare on the shark caudal fin (Z < -0.85)
+		if (VERTEX.z < -0.85) {
+			float fin_tip = clamp((-VERTEX.z - 0.85) / 0.50, 0.0, 1.0);
+			VERTEX.x += sin(t * 1.6 + wave_phase) * 0.08 * fin_tip;
+		}
 	}
 }
 

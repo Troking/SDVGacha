@@ -3,6 +3,7 @@ class_name ChibiPlayer
 
 const TEX_MAGIC_CIRCLE = preload("res://assets/textures/magic_circle_pyro.png")
 const TEX_PYRO_BUTTERFLY = preload("res://assets/textures/fx_pyro_butterfly.png")
+const TEX_CRYO_SNOWFLAKE = preload("res://assets/textures/fx_cryo_snowflake.png")
 const TEX_ASCENSION_RING = preload("res://assets/textures/fx_ascension_ring.png")
 const TEX_LIGHT_SHAFT = preload("res://assets/textures/fx_light_shaft.png")
 const TEX_CELESTIAL_SPARKLE = preload("res://assets/textures/fx_celestial_sparkle.png")
@@ -166,6 +167,7 @@ func _ready() -> void:
 	InventoryManager.equipment_changed.connect(func(_s, _d): _recalculate_equipment_stats())
 	_recalculate_equipment_stats()
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	SoundSynth.set_active_heroine(current_character_id)
 	call_deferred("_snap_to_ground_on_start")
 
 func activate_game_controls() -> void:
@@ -251,6 +253,9 @@ func _attach_weapon_to_hand() -> void:
 				weapon_dissolve_timer = 0.0
 
 func summon_weapon() -> void:
+	if current_character_id == "ellen" and ellen_model_node and ellen_model_node.has_method("summon_weapon"):
+		ellen_model_node.summon_weapon()
+		return
 	if not weapon_node or not is_instance_valid(weapon_node):
 		return
 	weapon_dissolve_timer = WEAPON_IDLE_DISSOLVE_DELAY
@@ -264,6 +269,9 @@ func summon_weapon() -> void:
 	weapon_tween.tween_property(weapon_node, "scale", WEAPON_SUMMON_SCALE, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func dissolve_weapon() -> void:
+	if current_character_id == "ellen" and ellen_model_node and ellen_model_node.has_method("dissolve_weapon"):
+		ellen_model_node.dissolve_weapon()
+		return
 	if not weapon_node or not is_instance_valid(weapon_node) or not is_weapon_summoned:
 		return
 	is_weapon_summoned = false
@@ -1025,6 +1033,7 @@ func switch_party_member(slot_idx: int) -> void:
 	party_switched.emit(target_char, slot_idx)
 
 func _apply_active_character(char_id: String) -> void:
+	SoundSynth.set_active_heroine(char_id)
 	if char_id == "ellen":
 		current_element = "ICE"
 		if anime_model:
@@ -1409,6 +1418,88 @@ func perform_elemental_skill() -> void:
 	skill_can_cancel = false
 	skill_cooldown_timer = skill_cooldown
 
+	if current_character_id == "ellen" or current_element == "ICE":
+		_perform_cryo_skill_ellen()
+	else:
+		_perform_pyro_skill_hutao()
+
+func _perform_cryo_skill_ellen() -> void:
+	# Ellen's Signature Cryo Skill: "Frost Shredder" (Ледяной Акулий Вихрь)
+	play_anim("2H_Melee_Attack_Spin", 0.04)
+	if anim_player:
+		anim_player.speed_scale = 1.35
+
+	# Ellen Japanese battle shout & frost whoosh
+	SoundSynth.play_voice_cryo_skill(self)
+	SoundSynth.play_frost_whoosh(self)
+
+	# Forward icy torpedo lunge
+	var fwd = visual_mesh.global_transform.basis.z
+	velocity += fwd * 7.5
+
+	# Icy blade slash ring
+	_spawn_sword_slash_arc(Color(0.25, 0.90, 1.0, 0.95), 3.2, 0.35)
+
+	# Anticipation dynamic squash & stretch
+	var spin_tween = create_tween()
+	spin_tween.tween_property(visual_mesh, "scale", Vector3(1.15, 0.90, 1.15), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	spin_tween.tween_property(visual_mesh, "scale", Vector3(1.0, 1.0, 1.0), 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	# Strike sync at midpoint of spin (t = 0.20s)
+	await get_tree().create_timer(0.20).timeout
+	if is_dead or not is_casting_skill:
+		return
+
+	# Cryo burst & glacier shatter audio
+	SoundSynth.play_cryo_burst(self)
+	SoundSynth.play_ice_shatter(self)
+
+	# Camera impact kick
+	if camera_node:
+		var cam_tween = create_tween()
+		cam_tween.tween_property(camera_node, "fov", camera_node.fov + 4.0, 0.06).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		cam_tween.tween_property(camera_node, "fov", 70.0, 0.28).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	# Deal direct Cryo spin damage to nearby enemies & destructibles
+	var spin_dmg = int(attack_power * 1.85)
+	var bodies = attack_area.get_overlapping_bodies()
+	for b in bodies:
+		if b.is_in_group("enemies") and b.has_method("take_damage"):
+			b.take_damage(spin_dmg, false, true, true)
+			if b.has_method("apply_hitstop"):
+				b.apply_hitstop(0.08)
+			_spawn_flame_hit_sparks(b.global_position, 1.5, true)
+		else:
+			var d_prop = _find_destructible(b)
+			if d_prop and not d_prop.is_destroyed:
+				d_prop.take_damage(spin_dmg, false, true, global_position)
+				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.3, true)
+
+	# Spawn Cryo Vortex in front of Ellen
+	var cryo_vortex_scene = preload("res://scenes/cryo_vortex.tscn")
+	if cryo_vortex_scene:
+		var vortex = cryo_vortex_scene.instantiate()
+		var spawn_pos = global_position + visual_mesh.global_transform.basis.z * 3.0
+		spawn_pos.y = global_position.y
+		get_parent().add_child(vortex)
+		vortex.global_position = spawn_pos
+
+	# Open early cancel window (t = 0.20s -> 0.45s)
+	await get_tree().create_timer(0.25).timeout
+	if is_dead or not is_casting_skill:
+		return
+	skill_can_cancel = true
+
+	# Follow through to resting stance (t = 0.45s -> 0.70s)
+	await get_tree().create_timer(0.25).timeout
+	if is_casting_skill and not is_dead and not is_climbing and not is_dashing:
+		is_casting_skill = false
+		skill_can_cancel = false
+		if anim_player:
+			anim_player.speed_scale = 1.0
+		play_anim("Idle", 0.20)
+
+func _perform_pyro_skill_hutao() -> void:
 	# Phase 1: Dynamic cast animation & gathering flame energy (t = 0.00s - 0.24s)
 	play_anim("Spellcast_Shoot", 0.08)
 	if anim_player:
@@ -1638,10 +1729,16 @@ func _release_charged_attack() -> void:
 
 	# High damage charged attack (2.5x base damage)
 	var charged_power = int(attack_power * 2.5)
+	var is_cryo_char = (current_character_id == "ellen" or current_element == "ICE")
 
 	# Sound & voice
-	SoundSynth.play_sword_charged(self) # Heavy cleave whoosh + sub-bass punch + singing steel + pyro roar
-	SoundSynth.play_voice_finisher(self)
+	if is_cryo_char:
+		SoundSynth.play_sword_charged(self)
+		SoundSynth.play_ice_shatter(self)
+		SoundSynth.play_voice_finisher(self)
+	else:
+		SoundSynth.play_sword_charged(self)
+		SoundSynth.play_voice_finisher(self)
 
 	# Animation: high-speed 2H anime sweeping slice
 	play_anim("2H_Melee_Attack_Slice", 0.02)
@@ -1671,11 +1768,12 @@ func _release_charged_attack() -> void:
 	tween.tween_property(visual_mesh, "scale", Vector3(0.92, 1.15, 0.92), 0.08)
 	tween.tween_property(visual_mesh, "scale", Vector3(1.0, 1.0, 1.0), 0.18)
 
-	# Wide sweeping crescent flame slash ribbon
-	_spawn_sword_slash_arc(Color(1.0, 0.42, 0.08, 0.95), 3.4, 0.28)
+	# Wide sweeping crescent slash ribbon
+	var slash_col = Color(0.25, 0.90, 1.0, 0.95) if is_cryo_char else Color(1.0, 0.42, 0.08, 0.95)
+	_spawn_sword_slash_arc(slash_col, 3.4, 0.28)
 
-	# Hu Tao Signature: Fluttering Pyro Butterflies burst along the slash trail!
-	_spawn_charged_butterfly_burst(global_position + fwd * 1.5 + Vector3(0, 0.8, 0))
+	# Signature Burst along slash trail: Snowflakes for Ellen, Butterflies for Hu Tao
+	_spawn_charged_butterfly_burst(global_position + fwd * 1.5 + Vector3(0, 0.8, 0), is_cryo_char)
 
 	# Multi-target hit detection with forward cleave & knockback
 	var bodies = attack_area.get_overlapping_bodies()
@@ -1683,11 +1781,11 @@ func _release_charged_attack() -> void:
 	var hit_destructibles: Array[DestructibleProp] = []
 	for b in bodies:
 		if b.is_in_group("enemies") and b.has_method("take_damage"):
-			b.take_damage(charged_power)
+			b.take_damage(charged_power, not is_cryo_char, true, is_cryo_char)
 			if b.has_method("apply_hitstop"):
 				b.apply_hitstop(0.08)
 			hit_count += 1
-			_spawn_flame_hit_sparks(b.global_position, 1.8)
+			_spawn_flame_hit_sparks(b.global_position, 1.8, is_cryo_char)
 			if b is CharacterBody3D:
 				var push_dir = fwd * 0.85 + (b.global_position - global_position).normalized() * 0.35
 				push_dir.y = 0.35
@@ -1698,7 +1796,7 @@ func _release_charged_attack() -> void:
 				hit_destructibles.append(d_prop)
 				d_prop.take_damage(charged_power, true, true, global_position)
 				hit_count += 1
-				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.2, 0), 1.8)
+				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.2, 0), 1.8, is_cryo_char)
 
 	if hit_count > 0:
 		SoundSynth.play_juicy_hit(self)
@@ -1716,18 +1814,18 @@ func _release_charged_attack() -> void:
 	if not is_dead and not is_climbing and not is_charging_attack:
 		play_anim("Idle", 0.18)
 
-func _spawn_charged_butterfly_burst(pos: Vector3) -> void:
+func _spawn_charged_butterfly_burst(pos: Vector3, is_cryo: bool = false) -> void:
 	var tree = get_tree()
 	if not tree or not tree.current_scene:
 		return
 
 	var p = CPUParticles3D.new()
-	p.name = "ChargedButterflies"
+	p.name = "ChargedParticles"
 	var p_mat = StandardMaterial3D.new()
 	p_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	p_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	p_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	p_mat.albedo_texture = TEX_PYRO_BUTTERFLY
+	p_mat.albedo_texture = TEX_CRYO_SNOWFLAKE if is_cryo else TEX_PYRO_BUTTERFLY
 	p_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	p_mat.vertex_color_use_as_albedo = true
 
@@ -1735,7 +1833,7 @@ func _spawn_charged_butterfly_burst(pos: Vector3) -> void:
 	p_mesh.size = Vector2(0.45, 0.45)
 	p_mesh.material = p_mat
 	p.mesh = p_mesh
-	p.amount = 12
+	p.amount = 14
 	p.lifetime = 0.55
 	p.one_shot = true
 	p.explosiveness = 0.85
@@ -1744,7 +1842,10 @@ func _spawn_charged_butterfly_burst(pos: Vector3) -> void:
 	p.initial_velocity_min = 2.0
 	p.initial_velocity_max = 5.0
 	var grad = Gradient.new()
-	grad.colors = PackedColorArray([Color(1.0, 0.95, 0.6, 1.0), Color(1.0, 0.35, 0.05, 0.85), Color(0.3, 0.02, 0.02, 0.0)])
+	if is_cryo:
+		grad.colors = PackedColorArray([Color(0.8, 0.95, 1.0, 1.0), Color(0.2, 0.75, 1.0, 0.85), Color(0.05, 0.2, 0.8, 0.0)])
+	else:
+		grad.colors = PackedColorArray([Color(1.0, 0.95, 0.6, 1.0), Color(1.0, 0.35, 0.05, 0.85), Color(0.3, 0.02, 0.02, 0.0)])
 	p.color_ramp = grad
 
 	tree.current_scene.add_child(p)
@@ -1784,17 +1885,19 @@ func perform_attack() -> void:
 
 	var current_combo = combo_data[combo_stage]
 	var dmg = int(attack_power * current_combo["mult"])
+	var is_cryo_char = (current_character_id == "ellen" or current_element == "ICE")
 
 	# Sound & Voice
-	if current_character_id == "ellen":
+	if is_cryo_char:
 		if combo_stage == 3:
 			SoundSynth.play_sword_heavy(self)
+			SoundSynth.play_ice_shatter(self)
 			if randf() < 0.65:
-				SoundSynth.play_voice_ellen_attack()
+				SoundSynth.play_voice_finisher(self)
 		else:
-			SoundSynth.play_sword_combo(self, combo_stage)
+			SoundSynth.play_frost_whoosh(self)
 			if randf() < 0.35:
-				SoundSynth.play_voice_ellen_attack()
+				SoundSynth.play_voice_attack(self)
 	else:
 		if combo_stage == 3:
 			# 4th hit: Heavy finisher boom & roar + signature shout
@@ -1828,7 +1931,17 @@ func perform_attack() -> void:
 	velocity += fwd * current_combo["lunge"]
 
 	# Blade slash visual arc
-	_spawn_sword_slash_arc(current_combo["color"], current_combo["radius"], current_combo["duration"] * 0.7)
+	var arc_col: Color = current_combo["color"]
+	if is_cryo_char:
+		var cryo_colors = [
+			Color(0.4, 0.92, 1.0, 0.88),
+			Color(0.2, 0.85, 1.0, 0.92),
+			Color(0.15, 0.75, 1.0, 0.95),
+			Color(0.65, 0.98, 1.0, 1.0)
+		]
+		arc_col = cryo_colors[combo_stage]
+
+	_spawn_sword_slash_arc(arc_col, current_combo["radius"], current_combo["duration"] * 0.7)
 
 	# Hit detection with fiery impact sparks
 	var bodies = attack_area.get_overlapping_bodies()
@@ -1837,13 +1950,14 @@ func perform_attack() -> void:
 	var hit_material = "flesh"
 	for b in bodies:
 		if b.is_in_group("enemies") and b.has_method("take_damage"):
-			b.take_damage(dmg)
+			var is_pyro_finisher = (not is_cryo_char and combo_stage == 3)
+			b.take_damage(dmg, is_pyro_finisher, combo_stage == 3, is_cryo_char)
 			if b.has_method("apply_hitstop"):
 				var enemy_stop = 0.06 if combo_stage == 3 else 0.04
 				b.apply_hitstop(enemy_stop)
 			hit_any = true
 			var spark_scale = 1.4 if combo_stage == 3 else 1.0
-			_spawn_flame_hit_sparks(b.global_position, spark_scale)
+			_spawn_flame_hit_sparks(b.global_position, spark_scale, is_cryo_char)
 			# Heavy 4th hit knocks back enemies!
 			if combo_stage == 3 and b is CharacterBody3D:
 				var push_dir = (b.global_position - global_position).normalized()
@@ -1869,7 +1983,7 @@ func perform_attack() -> void:
 				hit_destructibles.append(d_prop)
 				d_prop.take_damage(dmg, false, combo_stage == 3, global_position)
 				hit_any = true
-				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.2 if combo_stage == 3 else 0.9)
+				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.2 if combo_stage == 3 else 0.9, is_cryo_char)
 				if d_prop.prop_type == DestructibleProp.PropType.LANTERN:
 					hit_material = "stone"
 				elif d_prop.prop_type in [DestructibleProp.PropType.SHOP, DestructibleProp.PropType.PAVILION, DestructibleProp.PropType.PAGODA, DestructibleProp.PropType.BRIDGE]:
@@ -1944,7 +2058,7 @@ func _spawn_sword_slash_arc(arc_color: Color = Color(1.0, 0.55, 0.1, 0.85), radi
 	t.tween_property(mat, "albedo_color:a", 0.0, anim_dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.finished.connect(func(): if is_instance_valid(arc): arc.queue_free())
 
-func _spawn_flame_hit_sparks(pos: Vector3, scale_mult: float = 1.0) -> void:
+func _spawn_flame_hit_sparks(pos: Vector3, scale_mult: float = 1.0, is_cryo: bool = false) -> void:
 	var tree = get_tree()
 	if not tree or not tree.current_scene:
 		return
@@ -1958,7 +2072,7 @@ func _spawn_flame_hit_sparks(pos: Vector3, scale_mult: float = 1.0) -> void:
 	f_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	f_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	f_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	f_mat.albedo_color = Color(1.0, 0.85, 0.35, 0.95)
+	f_mat.albedo_color = Color(0.40, 0.92, 1.0, 0.95) if is_cryo else Color(1.0, 0.85, 0.35, 0.95)
 	flare.mesh = f_mesh
 	flare.material_override = f_mat
 	tree.current_scene.add_child(flare)
@@ -1968,7 +2082,7 @@ func _spawn_flame_hit_sparks(pos: Vector3, scale_mult: float = 1.0) -> void:
 	ft.parallel().tween_property(f_mat, "albedo_color:a", 0.0, 0.12)
 	ft.finished.connect(func(): if is_instance_valid(flare): flare.queue_free())
 
-	# Fiery sparks
+	# Sparks or frost crystals
 	var p = CPUParticles3D.new()
 	var mat = StandardMaterial3D.new()
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -1990,7 +2104,10 @@ func _spawn_flame_hit_sparks(pos: Vector3, scale_mult: float = 1.0) -> void:
 	p.initial_velocity_min = 4.0
 	p.initial_velocity_max = 8.5
 	var grad = Gradient.new()
-	grad.colors = PackedColorArray([Color(1.0, 0.9, 0.2, 1), Color(1.0, 0.45, 0.1, 0.9), Color(0.8, 0.1, 0.05, 0)])
+	if is_cryo:
+		grad.colors = PackedColorArray([Color(0.85, 0.98, 1.0, 1), Color(0.3, 0.85, 1.0, 0.9), Color(0.05, 0.4, 0.9, 0)])
+	else:
+		grad.colors = PackedColorArray([Color(1.0, 0.9, 0.2, 1), Color(1.0, 0.45, 0.1, 0.9), Color(0.8, 0.1, 0.05, 0)])
 	p.color_ramp = grad
 	tree.current_scene.add_child(p)
 	p.global_position = pos + Vector3(0, 0.8, 0)
