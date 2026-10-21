@@ -558,6 +558,9 @@ func _input(event: InputEvent) -> void:
 		rotate_camera_touch(event.relative)
 
 	if event is InputEventMouseButton and event.is_pressed():
+		if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+			if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED and not is_in_dialogue:
+				Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			spring_arm.spring_length = clamp(spring_arm.spring_length - zoom_step, min_zoom, max_zoom)
 			get_viewport().set_input_as_handled()
@@ -571,6 +574,21 @@ func rotate_camera_touch(relative_delta: Vector2) -> void:
 	camera_pivot.rotate_y(-relative_delta.x * mouse_sensitivity * 1.25)
 	camera_pitch = clamp(camera_pitch - relative_delta.y * mouse_sensitivity * 1.25, min_pitch, max_pitch)
 	camera_pivot.rotation.x = camera_pitch
+
+func get_movement_input_vector() -> Vector2:
+	var input_dir = Vector2.ZERO
+	# Direct dual-layer checks: Input Actions + Physical Hardware Keycodes + Cyrillic/Standard Keycodes + Arrow Keys
+	if Input.is_action_pressed("move_forward") or Input.is_physical_key_pressed(KEY_W) or Input.is_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_UP):
+		input_dir.y -= 1.0
+	if Input.is_action_pressed("move_back") or Input.is_physical_key_pressed(KEY_S) or Input.is_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_DOWN):
+		input_dir.y += 1.0
+	if Input.is_action_pressed("move_left") or Input.is_physical_key_pressed(KEY_A) or Input.is_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT) or Input.is_key_pressed(KEY_LEFT):
+		input_dir.x -= 1.0
+	if Input.is_action_pressed("move_right") or Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_RIGHT):
+		input_dir.x += 1.0
+	if input_dir.length_squared() > 0.001:
+		return input_dir.normalized()
+	return Vector2.ZERO
 
 func _physics_process(delta: float) -> void:
 	if is_in_dialogue:
@@ -675,12 +693,7 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# Read Input relative to camera orientation
-	var input_dir = Vector2.ZERO
-	if Input.is_action_pressed("move_forward"): input_dir.y -= 1
-	if Input.is_action_pressed("move_back"): input_dir.y += 1
-	if Input.is_action_pressed("move_left"): input_dir.x -= 1
-	if Input.is_action_pressed("move_right"): input_dir.x += 1
-	input_dir = input_dir.normalized()
+	var input_dir = get_movement_input_vector()
 
 	var cam_forward = -camera_pivot.global_transform.basis.z
 	var cam_right = camera_pivot.global_transform.basis.x
@@ -1590,14 +1603,9 @@ func perform_dash() -> void:
 	cam_forward.y = 0
 	cam_right.y = 0
 
-	var input_dir = Vector2.ZERO
-	if Input.is_action_pressed("move_forward"): input_dir.y -= 1
-	if Input.is_action_pressed("move_back"): input_dir.y += 1
-	if Input.is_action_pressed("move_left"): input_dir.x -= 1
-	if Input.is_action_pressed("move_right"): input_dir.x += 1
+	var input_dir = get_movement_input_vector()
 
 	if input_dir.length() > 0.1:
-		input_dir = input_dir.normalized()
 		dash_direction = (cam_forward * (-input_dir.y) + cam_right * input_dir.x).normalized()
 	else:
 		dash_direction = cam_forward.normalized()
@@ -1723,13 +1731,16 @@ func _get_prop_material(d_prop: DestructibleProp) -> String:
 	if not d_prop:
 		return "wood"
 	match d_prop.prop_type:
-		DestructibleProp.PropType.LANTERN, DestructibleProp.PropType.TOMB, DestructibleProp.PropType.RUIN, DestructibleProp.PropType.KARST_SPIRE:
+		DestructibleProp.PropType.LANTERN, DestructibleProp.PropType.TOMB, DestructibleProp.PropType.RUIN, DestructibleProp.PropType.KARST_SPIRE, DestructibleProp.PropType.SCHOOL_GATE:
 			return "stone"
 		DestructibleProp.PropType.BONE_SPIRE:
 			return "bone"
 		DestructibleProp.PropType.CYBER_TOWER, DestructibleProp.PropType.CYBER_LAMP:
 			return "cyber"
-		DestructibleProp.PropType.SHOP, DestructibleProp.PropType.PAVILION, DestructibleProp.PropType.PAGODA, DestructibleProp.PropType.BRIDGE, DestructibleProp.PropType.SHRINE:
+		DestructibleProp.PropType.SHOP, DestructibleProp.PropType.PAVILION, DestructibleProp.PropType.PAGODA, DestructibleProp.PropType.BRIDGE, DestructibleProp.PropType.SHRINE, DestructibleProp.PropType.SCHOOL_SECTION, DestructibleProp.PropType.SCHOOL_ROOF:
+			return "building"
+		DestructibleProp.PropType.SCHOOL_FURNITURE:
+			return "wood"
 			return "building"
 		_:
 			return "wood"
@@ -1771,7 +1782,7 @@ func _release_charged_attack() -> void:
 
 	# Smooth forward lunge (steps forward into the strike)
 	var fwd = visual_mesh.global_transform.basis.z
-	var input_vec = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var input_vec = get_movement_input_vector()
 	if input_vec.length() > 0.1:
 		var cam_fwd = -camera_pivot.global_transform.basis.z
 		var cam_rt = camera_pivot.global_transform.basis.x
@@ -1961,7 +1972,7 @@ func perform_attack() -> void:
 
 	# Tactile forward attack lunge (steps forward into the strike like Genshin characters)
 	var fwd = visual_mesh.global_transform.basis.z
-	var input_vec = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var input_vec = get_movement_input_vector()
 	if input_vec.length() > 0.1:
 		var cam_fwd = -camera_pivot.global_transform.basis.z
 		var cam_rt = camera_pivot.global_transform.basis.x
@@ -2047,7 +2058,10 @@ func perform_attack() -> void:
 	var fwd_sweep_center = global_position + visual_mesh.global_transform.basis.z * 1.8 + Vector3(0, 1.0, 0)
 	for d in get_tree().get_nodes_in_group("destructible"):
 		if is_instance_valid(d) and d is DestructibleProp and not d.is_destroyed and not d in hit_destructibles:
-			if fwd_sweep_center.distance_to(d.global_position) <= 4.2:
+			var reach = 4.5
+			if d.prop_type in [DestructibleProp.PropType.SCHOOL_SECTION, DestructibleProp.PropType.SCHOOL_ROOF, DestructibleProp.PropType.BRIDGE, DestructibleProp.PropType.PAGODA, DestructibleProp.PropType.CYBER_TOWER, DestructibleProp.PropType.KARST_SPIRE]:
+				reach = 9.5
+			if fwd_sweep_center.distance_to(d.global_position) <= reach:
 				hit_destructibles.append(d)
 				d.take_damage(dmg, false, combo_stage == 3, global_position)
 				hit_any = true

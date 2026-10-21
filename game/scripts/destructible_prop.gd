@@ -22,11 +22,15 @@ enum PropType {
 	CYBER_TOWER, # Neo-Cyber Skyscraper Towers: collapses into metallic tech girders & glowing neon
 	CYBER_LAMP,  # Cyber Streetlamps & Bollards: shatters into cyber alloy & sparks
 	DEAD_TREE,   # Blighted Twisted Dead Trees: snaps into rotten ashwood logs & soot
-	SHRINE,      # Mountain Shrine: sacred timber, bells & golden talismans
-	RUIN,        # Ancient Stone Ruins: ancient carved granite & mystical dust
-	DOCK,        # Riverside Wooden Dock: planks & logs
-	CAMPFIRE,    # Campfire: charred logs, stones & glowing embers
-	KARST_SPIRE  # Giant Karst Peak / Spire: massive boulders & rock shards
+	SHRINE,           # Mountain Shrine: sacred timber, bells & golden talismans
+	RUIN,             # Ancient Stone Ruins: ancient carved granite & mystical dust
+	DOCK,             # Riverside Wooden Dock: planks & logs
+	CAMPFIRE,         # Campfire: charred logs, stones & glowing embers
+	KARST_SPIRE,      # Giant Karst Peak / Spire: massive boulders & rock shards
+	SCHOOL_SECTION,   # High school classroom floors / building sections: plaster concrete, parquet, glass
+	SCHOOL_ROOF,      # High school rooftop: concrete parapet, clock tower, HVAC, chain-link fence
+	SCHOOL_FURNITURE, # Desks, chairs, chalkboards, soccer goals, bicycle racks
+	SCHOOL_GATE       # School entrance stone gate pillars with sign plaque
 }
 
 @export var prop_type: PropType = PropType.TREE
@@ -35,6 +39,7 @@ enum PropType {
 
 var is_destroyed: bool = false
 var is_wobbling: bool = false
+var damage_stage: int = 0 # 0 = intact, 1 = top broken, 2 = mid broken, 3 = total collapse
 var original_basis: Basis
 var original_pos: Vector3
 
@@ -65,7 +70,7 @@ func take_damage(amount: int, is_pyro: bool = false, is_heavy: bool = false, hit
 
 	# Audio feedback based on prop material
 	match prop_type:
-		PropType.LANTERN, PropType.TOMB, PropType.RUIN, PropType.KARST_SPIRE:
+		PropType.LANTERN, PropType.TOMB, PropType.RUIN, PropType.KARST_SPIRE, PropType.SCHOOL_GATE:
 			SoundSynth.play_material_hit(self, "stone")
 		PropType.BONE_SPIRE:
 			SoundSynth.play_material_hit(self, "bone")
@@ -73,9 +78,9 @@ func take_damage(amount: int, is_pyro: bool = false, is_heavy: bool = false, hit
 			SoundSynth.play_material_hit(self, "metal")
 		PropType.CYBER_TOWER, PropType.CYBER_LAMP:
 			SoundSynth.play_material_hit(self, "cyber")
-		PropType.SHOP, PropType.PAVILION, PropType.PAGODA, PropType.SHRINE:
+		PropType.SHOP, PropType.PAVILION, PropType.PAGODA, PropType.SHRINE, PropType.SCHOOL_SECTION, PropType.SCHOOL_ROOF:
 			SoundSynth.play_material_hit(self, "building")
-		PropType.BRIDGE, PropType.DOCK, PropType.CAMPFIRE:
+		PropType.BRIDGE, PropType.DOCK, PropType.CAMPFIRE, PropType.SCHOOL_FURNITURE:
 			SoundSynth.play_material_hit(self, "wood")
 		_:
 			SoundSynth.play_material_hit(self, "wood")
@@ -84,7 +89,24 @@ func take_damage(amount: int, is_pyro: bool = false, is_heavy: bool = false, hit
 	_trigger_hit_wobble(hit_dir, is_heavy)
 	_spawn_hit_particles(hit_dir, is_pyro, is_heavy)
 
+	# Multi-stage progressive demolition for large structures
+	var is_large_structure = prop_type in [
+		PropType.PAGODA, PropType.CYBER_TOWER, PropType.KARST_SPIRE,
+		PropType.BRIDGE, PropType.TOMB, PropType.BONE_SPIRE,
+		PropType.SCHOOL_SECTION, PropType.SCHOOL_ROOF, PropType.SHOP, PropType.PAVILION
+	] or max_health >= 180
+
+	if is_large_structure and not is_destroyed:
+		var health_pct = float(current_health) / float(max_health)
+		if health_pct <= 0.66 and damage_stage == 0:
+			damage_stage = 1
+			_collapse_tier_sequence(1, hit_dir)
+		elif health_pct <= 0.33 and damage_stage == 1:
+			damage_stage = 2
+			_collapse_tier_sequence(2, hit_dir)
+
 	if current_health <= 0:
+		damage_stage = 3
 		destroy(hit_dir, is_heavy)
 
 func _trigger_hit_wobble(hit_dir: Vector3, is_heavy: bool) -> void:
@@ -432,6 +454,124 @@ func _felling_bamboo_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 	visible = false
 	tree.create_timer(0.1).timeout.connect(func(): if is_instance_valid(self): queue_free())
 
+# ==================== MODULAR TIER COLLAPSE SEQUENCE ====================
+
+func _collapse_tier_sequence(tier: int, hit_dir: Vector3) -> void:
+	var tree = get_tree()
+	var scene = tree.current_scene if tree else null
+	if not scene:
+		return
+
+	# Audio feedback for partial tier fracture
+	if prop_type in [PropType.LANTERN, PropType.TOMB, PropType.RUIN, PropType.KARST_SPIRE, PropType.SCHOOL_GATE]:
+		SoundSynth.play_stone_crumble(self)
+	elif prop_type in [PropType.CYBER_TOWER, PropType.CYBER_LAMP]:
+		SoundSynth.play_material_hit(self, "cyber")
+	else:
+		SoundSynth.play_building_collapse(self)
+
+	# Camera shudder
+	var player = tree.get_first_node_in_group("player")
+	if player and is_instance_valid(player):
+		var dist = global_position.distance_to(player.global_position)
+		if dist < 32.0 and player.has_method("_apply_hit_impact"):
+			var str_cam = clamp(1.0 - (dist / 32.0), 0.1, 1.0) * 0.14
+			player._apply_hit_impact(0.04, str_cam)
+
+	# Calculate dimensions
+	var w = 2.5; var h = 4.0; var d = 2.5
+	match prop_type:
+		PropType.PAGODA: w = 3.5; h = 7.5; d = 3.5
+		PropType.CYBER_TOWER: w = 3.5; h = 9.0; d = 3.5
+		PropType.KARST_SPIRE: w = 4.2; h = 12.0; d = 4.2
+		PropType.BRIDGE: w = 4.0; h = 2.4; d = 6.0
+		PropType.TOMB: w = 2.4; h = 2.8; d = 2.4
+		PropType.BONE_SPIRE: w = 1.2; h = 4.8; d = 1.2
+		PropType.SCHOOL_SECTION: w = 10.0; h = 3.6; d = 5.0
+		PropType.SCHOOL_ROOF: w = 10.0; h = 2.4; d = 5.0
+		PropType.SHOP: w = 3.0; h = 4.0; d = 3.0
+		PropType.PAVILION: w = 2.8; h = 3.8; d = 2.8
+
+	var y_min = h * 0.65 if tier == 1 else h * 0.35
+	var y_max = h * 1.05 if tier == 1 else h * 0.68
+	var tier_center_y = (y_min + y_max) * 0.5
+
+	# Hide or crack specific child tier nodes if present
+	var tier_search_tags = ["tier_top", "roof", "spire", "clock", "pinnacle", "antenna"] if tier == 1 else ["tier_mid", "balcony", "window", "upper"]
+	for child in find_children("*", "", true, false):
+		var c_name = child.name.to_lower()
+		for tag in tier_search_tags:
+			if tag in c_name:
+				if child is VisualInstance3D:
+					child.visible = false
+				elif child is CollisionShape3D:
+					child.set_deferred("disabled", true)
+
+	# Spawn localized falling debris chunks (7-10 chunks per tier)
+	var chunk_count = 8
+	for i in range(chunk_count):
+		var chunk = RigidBody3D.new()
+		var col = CollisionShape3D.new()
+		var box_shape = BoxShape3D.new()
+		var mesh_inst = MeshInstance3D.new()
+		var b_mesh = BoxMesh.new()
+		var mat = StandardMaterial3D.new()
+		mat.roughness = 0.85
+
+		var piece_type = i % 3
+		if prop_type in [PropType.PAGODA, PropType.SHOP, PropType.PAVILION, PropType.SHRINE]:
+			if tier == 1:
+				b_mesh.size = Vector3(randf_range(0.4, 0.8), 0.08, randf_range(0.5, 0.9))
+				mat.albedo_color = Color(0.16, 0.24, 0.28)
+			else:
+				b_mesh.size = Vector3(randf_range(0.2, 0.35), randf_range(0.2, 0.35), randf_range(0.8, 1.6))
+				mat.albedo_color = Color(0.24, 0.15, 0.08)
+		elif prop_type in [PropType.CYBER_TOWER, PropType.CYBER_LAMP]:
+			b_mesh.size = Vector3(randf_range(0.15, 0.3), randf_range(0.4, 1.2), randf_range(0.15, 0.3))
+			mat.metallic = 0.85
+			mat.roughness = 0.25
+			mat.albedo_color = Color(0.0, 0.95, 1.0) if piece_type == 1 else Color(0.14, 0.16, 0.22)
+		elif prop_type in [PropType.SCHOOL_SECTION, PropType.SCHOOL_ROOF]:
+			b_mesh.size = Vector3(randf_range(0.35, 0.75), randf_range(0.25, 0.5), randf_range(0.35, 0.75))
+			mat.albedo_color = Color(0.86, 0.88, 0.91) if piece_type == 0 else Color(0.65, 0.85, 0.98, 0.65)
+		else:
+			b_mesh.size = Vector3(randf_range(0.35, 0.65), randf_range(0.25, 0.5), randf_range(0.35, 0.65))
+			mat.albedo_color = Color(0.42, 0.40, 0.38)
+
+		box_shape.size = b_mesh.size
+		col.shape = box_shape
+		mesh_inst.mesh = b_mesh
+		mesh_inst.material_override = mat
+
+		chunk.add_child(col)
+		chunk.add_child(mesh_inst)
+
+		chunk.collision_layer = 0
+		chunk.collision_mask = 1
+		chunk.mass = randf_range(3.0, 9.0)
+		chunk.linear_damp = 0.8
+		chunk.angular_damp = 1.2
+		scene.add_child(chunk)
+
+		var spawn_offset = Vector3(randf_range(-w * 0.8, w * 0.8), randf_range(y_min, y_max), randf_range(-d * 0.8, d * 0.8))
+		chunk.global_position = global_position + spawn_offset
+
+		var out_dir = spawn_offset.normalized()
+		out_dir.y = randf_range(0.2, 0.8)
+		var impulse = (out_dir * randf_range(3.0, 6.5) + hit_dir * randf_range(1.5, 3.5) + Vector3.UP * randf_range(1.0, 3.5))
+		chunk.apply_central_impulse(impulse)
+		chunk.apply_torque_impulse(Vector3(randf_range(-10, 10), randf_range(-10, 10), randf_range(-10, 10)))
+
+		tree.create_timer(4.5).timeout.connect(func():
+			if is_instance_valid(chunk):
+				var dt = chunk.create_tween()
+				dt.tween_property(chunk, "scale", Vector3(0.01, 0.01, 0.01), 1.0).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+				dt.finished.connect(func(): if is_instance_valid(chunk): chunk.queue_free())
+		)
+
+	# Localized dust puff at the fractured tier
+	_spawn_collapse_dust_cloud(global_position + Vector3(0, tier_center_y, 0), w * 0.7, h * 0.35)
+
 # ==================== BUILDING COLLAPSE SEQUENCE ====================
 
 func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
@@ -515,6 +655,18 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 		PropType.KARST_SPIRE:
 			chunk_count = 22
 			w = 4.2; h = 8.5; d = 4.2
+		PropType.SCHOOL_SECTION:
+			chunk_count = 22
+			w = 12.0; h = 3.6; d = 6.0
+		PropType.SCHOOL_ROOF:
+			chunk_count = 18
+			w = 12.0; h = 2.4; d = 6.0
+		PropType.SCHOOL_FURNITURE:
+			chunk_count = 6
+			w = 0.8; h = 0.8; d = 0.8
+		PropType.SCHOOL_GATE:
+			chunk_count = 12
+			w = 2.0; h = 3.6; d = 1.0
 
 	# Spawn Dynamic Physics RigidBody3D Debris Chunks
 	for i in range(chunk_count):
@@ -565,6 +717,49 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 			if piece_type != 0:
 				mat.emission_enabled = true
 				mat.emission = Color(1.0, 0.35, 0.1)
+		elif prop_type == PropType.SCHOOL_SECTION:
+			if piece_type == 0:
+				b_mesh.size = Vector3(randf_range(0.4, 0.9), randf_range(0.3, 0.6), randf_range(0.4, 0.9))
+				mat.albedo_color = Color(0.86, 0.88, 0.91)
+			elif piece_type == 1:
+				b_mesh.size = Vector3(randf_range(0.3, 0.6), 0.04, randf_range(0.3, 0.6))
+				mat.albedo_color = Color(0.65, 0.85, 0.98, 0.65)
+				mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				mat.roughness = 0.15
+			else:
+				b_mesh.size = Vector3(randf_range(0.15, 0.35), 0.08, randf_range(0.6, 1.2))
+				mat.albedo_color = Color(0.76, 0.58, 0.42)
+		elif prop_type == PropType.SCHOOL_ROOF:
+			if piece_type == 0:
+				b_mesh.size = Vector3(randf_range(0.6, 1.2), 0.22, randf_range(0.6, 1.2))
+				mat.albedo_color = Color(0.48, 0.52, 0.56)
+			elif piece_type == 1:
+				b_mesh.size = Vector3(randf_range(0.4, 0.9), randf_range(0.6, 1.4), 0.05)
+				mat.albedo_color = Color(0.32, 0.35, 0.38)
+				mat.metallic = 0.6
+			else:
+				b_mesh.size = Vector3(randf_range(0.3, 0.6), randf_range(0.3, 0.6), randf_range(0.3, 0.6))
+				mat.albedo_color = Color(0.18, 0.20, 0.25)
+				mat.metallic = 0.8
+		elif prop_type == PropType.SCHOOL_FURNITURE:
+			if piece_type == 0:
+				b_mesh.size = Vector3(randf_range(0.3, 0.6), 0.06, randf_range(0.3, 0.6))
+				mat.albedo_color = Color(0.65, 0.42, 0.25)
+			elif piece_type == 1:
+				b_mesh.size = Vector3(0.06, randf_range(0.4, 0.7), 0.06)
+				mat.albedo_color = Color(0.2, 0.2, 0.25)
+				mat.metallic = 0.7
+			else:
+				b_mesh.size = Vector3(randf_range(0.4, 0.8), randf_range(0.3, 0.6), 0.04)
+				mat.albedo_color = Color(0.10, 0.30, 0.20)
+		elif prop_type == PropType.SCHOOL_GATE:
+			if piece_type == 0:
+				b_mesh.size = Vector3(randf_range(0.4, 0.8), randf_range(0.4, 0.8), randf_range(0.4, 0.8))
+				mat.albedo_color = Color(0.22, 0.28, 0.40)
+			else:
+				b_mesh.size = Vector3(randf_range(0.3, 0.6), randf_range(0.6, 1.2), 0.08)
+				mat.albedo_color = Color(0.32, 0.35, 0.38)
+				mat.metallic = 0.6
 		elif piece_type == 0:
 			# Timber beam
 			b_mesh.size = Vector3(randf_range(0.25, 0.40), randf_range(0.25, 0.40), randf_range(1.1, 2.2))

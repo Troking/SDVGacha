@@ -128,9 +128,10 @@ func _ready() -> void:
 	_update_joystick_home()
 	get_viewport().size_changed.connect(_on_viewport_resized)
 
-	# Auto-enable on mobile / touch platforms, or enable by default for easy access
+	# Auto-enable on mobile / touch platforms only
 	var is_mobile = OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
-	is_touch_enabled = true # Enabled by default for all devices (responsive & toggleable)
+	is_touch_enabled = is_mobile
+	visible = is_mobile
 
 func _on_viewport_resized() -> void:
 	_update_joystick_home()
@@ -296,10 +297,14 @@ func _update_movement_from_joystick() -> void:
 		Input.action_release("move_right")
 
 func _release_movement_actions() -> void:
-	Input.action_release("move_forward")
-	Input.action_release("move_back")
-	Input.action_release("move_left")
-	Input.action_release("move_right")
+	if not Input.is_physical_key_pressed(KEY_W) and not Input.is_key_pressed(KEY_UP):
+		Input.action_release("move_forward")
+	if not Input.is_physical_key_pressed(KEY_S) and not Input.is_key_pressed(KEY_DOWN):
+		Input.action_release("move_back")
+	if not Input.is_physical_key_pressed(KEY_A) and not Input.is_key_pressed(KEY_LEFT):
+		Input.action_release("move_left")
+	if not Input.is_physical_key_pressed(KEY_D) and not Input.is_key_pressed(KEY_RIGHT):
+		Input.action_release("move_right")
 
 func _trigger_action_press(action: String) -> void:
 	Input.action_press(action, 1.0)

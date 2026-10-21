@@ -18,6 +18,13 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	body_exited.connect(_on_body_exited)
 	_setup_ellen_visuals()
+	call_deferred("_check_initial_proximity")
+
+func _check_initial_proximity() -> void:
+	var player = get_tree().get_first_node_in_group("player")
+	if player:
+		if global_position.distance_to(player.global_position) <= 4.2:
+			is_player_nearby = true
 	_update_prompt()
 
 func _setup_ellen_visuals() -> void:
@@ -71,11 +78,32 @@ func _process(delta: float) -> void:
 	# Subtle floating bob
 	visual_root.position.y = sin(bob_time * 1.8) * 0.025
 
-func _unhandled_input(event: InputEvent) -> void:
+	# Active real-time distance proximity tracking
+	if not is_recruited:
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			var d = global_position.distance_to(player.global_position)
+			var was_nearby = is_player_nearby
+			is_player_nearby = (d <= 4.2)
+			if is_player_nearby != was_nearby:
+				_update_prompt()
+
+func _input(event: InputEvent) -> void:
 	if is_player_nearby and not is_recruited:
-		if event.is_action_pressed("interact") or (event is InputEventKey and event.is_pressed() and not event.is_echo() and event.keycode == KEY_F):
+		var is_f_key = false
+		if event is InputEventKey and event.is_pressed() and not event.is_echo():
+			is_f_key = (event.physical_keycode == KEY_F or event.keycode == KEY_F or event.keycode == 0x410 or event.keycode == 0x430 or event.unicode == 1072 or event.unicode == 1040)
+		if event.is_action_pressed("interact") or is_f_key:
 			get_viewport().set_input_as_handled()
 			_trigger_dialogue()
+		elif event is InputEventMouseButton and event.is_pressed() and event.button_index == MOUSE_BUTTON_LEFT:
+			var player = get_tree().get_first_node_in_group("player")
+			if player and not player.is_in_dialogue and Input.get_mouse_mode() == Input.MOUSE_MODE_VISIBLE:
+				get_viewport().set_input_as_handled()
+				_trigger_dialogue()
+
+func _unhandled_input(event: InputEvent) -> void:
+	_input(event)
 
 func _trigger_dialogue() -> void:
 	var player = get_tree().get_first_node_in_group("player")

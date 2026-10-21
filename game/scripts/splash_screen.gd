@@ -380,6 +380,12 @@ func start_game() -> void:
 		flash_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		flash_tween.tween_property(start_button, "scale", Vector2(1.12, 1.12), 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		flash_tween.tween_property(start_button, "scale", Vector2(1.0, 1.0), 0.16)
+		start_button.release_focus()
+
+	# Release any UI focus immediately so Godot Viewport retains direct canvas key events
+	get_viewport().gui_release_focus()
+	if root_control:
+		root_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# Unpause the game world & signal main scene
 	get_tree().paused = false
