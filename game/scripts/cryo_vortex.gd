@@ -112,14 +112,18 @@ func _deal_tick_damage(dmg: int) -> void:
 				if e.has_method("take_damage"):
 					e.take_damage(dmg, false, false, true)
 
-	# Damage destructible props in radius
+	# Damage destructible props in radius using local physics overlaps
 	var hit_destructibles: Array[DestructibleProp] = []
-	for body in get_tree().get_nodes_in_group("destructible_body"):
-		if is_instance_valid(body) and body is Node3D:
-			if global_position.distance_to(body.global_position) <= pull_radius:
-				var dp = _find_destructible(body)
-				if dp and is_instance_valid(dp) and not hit_destructibles.has(dp):
-					hit_destructibles.append(dp)
+	for b in get_overlapping_bodies():
+		if is_instance_valid(b) and b.is_in_group("destructible_body"):
+			var dp = _find_destructible(b)
+			if dp and is_instance_valid(dp) and not hit_destructibles.has(dp):
+				hit_destructibles.append(dp)
+	for a in get_overlapping_areas():
+		if is_instance_valid(a) and a.is_in_group("destructible_area"):
+			var dp = _find_destructible(a)
+			if dp and is_instance_valid(dp) and not hit_destructibles.has(dp):
+				hit_destructibles.append(dp)
 
 	for dp in hit_destructibles:
 		if is_instance_valid(dp) and dp.has_method("take_damage"):
@@ -166,12 +170,16 @@ func _trigger_final_eruption() -> void:
 
 	# Shatter any remaining destructibles in burst
 	var burst_destructibles: Array[DestructibleProp] = []
-	for body in get_tree().get_nodes_in_group("destructible_body"):
-		if is_instance_valid(body) and body is Node3D:
-			if global_position.distance_to(body.global_position) <= burst_radius:
-				var dp = _find_destructible(body)
-				if dp and is_instance_valid(dp) and not burst_destructibles.has(dp):
-					burst_destructibles.append(dp)
+	for b in get_overlapping_bodies():
+		if is_instance_valid(b) and b.is_in_group("destructible_body"):
+			var dp = _find_destructible(b)
+			if dp and is_instance_valid(dp) and not burst_destructibles.has(dp):
+				burst_destructibles.append(dp)
+	for a in get_overlapping_areas():
+		if is_instance_valid(a) and a.is_in_group("destructible_area"):
+			var dp = _find_destructible(a)
+			if dp and is_instance_valid(dp) and not burst_destructibles.has(dp):
+				burst_destructibles.append(dp)
 
 	for dp in burst_destructibles:
 		if is_instance_valid(dp) and dp.has_method("take_damage"):

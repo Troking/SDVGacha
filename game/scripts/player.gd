@@ -612,7 +612,10 @@ func _physics_process(delta: float) -> void:
 		skill_cooldown_updated.emit(max(0.0, skill_cooldown_timer), skill_cooldown)
 		if skill_cooldown_timer <= 0.0:
 			can_use_skill = true
-			AccessibilityManager.speak("Пламя готово")
+			if current_character_id == "ellen" or current_element == "ICE":
+				AccessibilityManager.speak("Ледяной вихрь готов")
+			else:
+				AccessibilityManager.speak("Пламя готово")
 
 	# Combo decay timer (resets combo chain if idle for > COMBO_WINDOW)
 	if combo_stage > 0 and not is_attacking:
@@ -1475,6 +1478,12 @@ func _perform_cryo_skill_ellen() -> void:
 				d_prop.take_damage(spin_dmg, false, true, global_position)
 				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.3, true)
 
+	for a in attack_area.get_overlapping_areas():
+		var d_prop = _find_destructible(a)
+		if d_prop and not d_prop.is_destroyed:
+			d_prop.take_damage(spin_dmg, false, true, global_position)
+			_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.3, true)
+
 	# Spawn Cryo Vortex in front of Ellen
 	var cryo_vortex_scene = preload("res://scenes/cryo_vortex.tscn")
 	if cryo_vortex_scene:
@@ -1710,6 +1719,21 @@ func _find_destructible(node: Node) -> DestructibleProp:
 		curr = curr.get_parent()
 	return null
 
+func _get_prop_material(d_prop: DestructibleProp) -> String:
+	if not d_prop:
+		return "wood"
+	match d_prop.prop_type:
+		DestructibleProp.PropType.LANTERN, DestructibleProp.PropType.TOMB, DestructibleProp.PropType.RUIN, DestructibleProp.PropType.KARST_SPIRE:
+			return "stone"
+		DestructibleProp.PropType.BONE_SPIRE:
+			return "bone"
+		DestructibleProp.PropType.CYBER_TOWER, DestructibleProp.PropType.CYBER_LAMP:
+			return "cyber"
+		DestructibleProp.PropType.SHOP, DestructibleProp.PropType.PAVILION, DestructibleProp.PropType.PAGODA, DestructibleProp.PropType.BRIDGE, DestructibleProp.PropType.SHRINE:
+			return "building"
+		_:
+			return "wood"
+
 func _release_charged_attack() -> void:
 	is_charging_attack = false
 	if anim_player:
@@ -1798,6 +1822,23 @@ func _release_charged_attack() -> void:
 				hit_count += 1
 				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.2, 0), 1.8, is_cryo_char)
 
+	for a in attack_area.get_overlapping_areas():
+		var d_prop = _find_destructible(a)
+		if d_prop and not d_prop.is_destroyed and not d_prop in hit_destructibles:
+			hit_destructibles.append(d_prop)
+			d_prop.take_damage(charged_power, true, true, global_position)
+			hit_count += 1
+			_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.2, 0), 1.8, is_cryo_char)
+
+	var fwd_sweep_center = global_position + fwd * 2.2 + Vector3(0, 1.0, 0)
+	for d in get_tree().get_nodes_in_group("destructible"):
+		if is_instance_valid(d) and d is DestructibleProp and not d.is_destroyed and not d in hit_destructibles:
+			if fwd_sweep_center.distance_to(d.global_position) <= 4.8:
+				hit_destructibles.append(d)
+				d.take_damage(charged_power, true, true, global_position)
+				hit_count += 1
+				_spawn_flame_hit_sparks(d.global_position + Vector3(0, 1.2, 0), 1.8, is_cryo_char)
+
 	if hit_count > 0:
 		SoundSynth.play_juicy_hit(self)
 		_apply_hit_impact(0.06, 0.15)
@@ -1871,21 +1912,27 @@ func perform_attack() -> void:
 	can_attack = false
 	summon_weapon()
 
-	# 4-Hit Combo Chain:
-	# Strike 1: Slice Diagonal (1.0x DMG)
-	# Strike 2: Chop (1.1x DMG)
-	# Strike 3: Slice Horizontal (1.25x DMG)
-	# Strike 4 (Heavy Finisher): 2H Power Cleave (2.0x DMG + Knockback)
-	var combo_data = [
-		{"anim": "1H_Melee_Attack_Slice_Diagonal", "mult": 1.0, "duration": 0.26, "lunge": 2.5, "radius": 1.9, "color": Color(1.0, 0.85, 0.4, 0.85)},
-		{"anim": "1H_Melee_Attack_Chop", "mult": 1.1, "duration": 0.28, "lunge": 3.0, "radius": 2.0, "color": Color(1.0, 0.65, 0.2, 0.88)},
-		{"anim": "1H_Melee_Attack_Slice_Horizontal", "mult": 1.25, "duration": 0.32, "lunge": 3.5, "radius": 2.2, "color": Color(1.0, 0.45, 0.1, 0.92)},
-		{"anim": "2H_Melee_Attack_Slice", "mult": 2.0, "duration": 0.45, "lunge": 5.5, "radius": 2.6, "color": Color(1.0, 0.25, 0.05, 0.98)}
+	# Character-specific combo animation chains:
+	# Hu Tao: agile 1H crimson rapier strikes ending in 2H overhead slice
+	# Ellen Joe: predatory heavy mechanical shark shears (scissors) combo with spins & glacial cleaves
+	var is_cryo_char = (current_character_id == "ellen" or current_element == "ICE")
+
+	var combo_data_hutao = [
+		{"anim": "1H_Melee_Attack_Slice_Diagonal", "mult": 1.0, "duration": 0.26, "lunge": 2.5, "radius": 2.0, "color": Color(1.0, 0.85, 0.4, 0.85)},
+		{"anim": "1H_Melee_Attack_Chop", "mult": 1.1, "duration": 0.28, "lunge": 3.0, "radius": 2.1, "color": Color(1.0, 0.65, 0.2, 0.88)},
+		{"anim": "1H_Melee_Attack_Slice_Horizontal", "mult": 1.25, "duration": 0.32, "lunge": 3.5, "radius": 2.3, "color": Color(1.0, 0.45, 0.1, 0.92)},
+		{"anim": "2H_Melee_Attack_Slice", "mult": 2.0, "duration": 0.45, "lunge": 5.5, "radius": 2.8, "color": Color(1.0, 0.25, 0.05, 0.98)}
+	]
+	var combo_data_ellen = [
+		{"anim": "Dualwield_Melee_Attack_Slice", "mult": 1.15, "duration": 0.24, "lunge": 3.2, "radius": 2.3, "color": Color(0.35, 0.90, 1.0, 0.90)},
+		{"anim": "2H_Melee_Attack_Chop", "mult": 1.30, "duration": 0.27, "lunge": 3.5, "radius": 2.4, "color": Color(0.20, 0.85, 1.0, 0.92)},
+		{"anim": "2H_Melee_Attack_Spin", "mult": 1.55, "duration": 0.33, "lunge": 4.4, "radius": 2.7, "color": Color(0.15, 0.75, 1.0, 0.95)},
+		{"anim": "2H_Melee_Attack_Slice", "mult": 2.30, "duration": 0.44, "lunge": 6.2, "radius": 3.2, "color": Color(0.65, 0.98, 1.0, 1.0)}
 	]
 
+	var combo_data = combo_data_ellen if is_cryo_char else combo_data_hutao
 	var current_combo = combo_data[combo_stage]
 	var dmg = int(attack_power * current_combo["mult"])
-	var is_cryo_char = (current_character_id == "ellen" or current_element == "ICE")
 
 	# Sound & Voice
 	if is_cryo_char:
@@ -1984,12 +2031,28 @@ func perform_attack() -> void:
 				d_prop.take_damage(dmg, false, combo_stage == 3, global_position)
 				hit_any = true
 				_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.2 if combo_stage == 3 else 0.9, is_cryo_char)
-				if d_prop.prop_type == DestructibleProp.PropType.LANTERN:
-					hit_material = "stone"
-				elif d_prop.prop_type in [DestructibleProp.PropType.SHOP, DestructibleProp.PropType.PAVILION, DestructibleProp.PropType.PAGODA, DestructibleProp.PropType.BRIDGE]:
-					hit_material = "building"
-				else:
-					hit_material = "wood"
+				hit_material = _get_prop_material(d_prop)
+
+	# Also check dedicated DestructibleHurtbox Area3D overlaps
+	for a in attack_area.get_overlapping_areas():
+		var d_prop = _find_destructible(a)
+		if d_prop and not d_prop.is_destroyed and not d_prop in hit_destructibles:
+			hit_destructibles.append(d_prop)
+			d_prop.take_damage(dmg, false, combo_stage == 3, global_position)
+			hit_any = true
+			_spawn_flame_hit_sparks(d_prop.global_position + Vector3(0, 1.0, 0), 1.2 if combo_stage == 3 else 0.9, is_cryo_char)
+			hit_material = _get_prop_material(d_prop)
+
+	# Forward sweeping arc for large spires, mausoleums and mountain structures
+	var fwd_sweep_center = global_position + visual_mesh.global_transform.basis.z * 1.8 + Vector3(0, 1.0, 0)
+	for d in get_tree().get_nodes_in_group("destructible"):
+		if is_instance_valid(d) and d is DestructibleProp and not d.is_destroyed and not d in hit_destructibles:
+			if fwd_sweep_center.distance_to(d.global_position) <= 4.2:
+				hit_destructibles.append(d)
+				d.take_damage(dmg, false, combo_stage == 3, global_position)
+				hit_any = true
+				_spawn_flame_hit_sparks(d.global_position + Vector3(0, 1.0, 0), 1.2 if combo_stage == 3 else 0.9, is_cryo_char)
+				hit_material = _get_prop_material(d)
 
 	if hit_any:
 		SoundSynth.play_material_hit(self, hit_material)

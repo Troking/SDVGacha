@@ -494,20 +494,8 @@ func _build_karst_peaks() -> void:
 		{"pos": Vector3(72.0, 2.8, 58.0), "scale": Vector3(1.3, 1.25, 1.3), "rot": 115.0},
 	]
 	for s_data in spires:
-		var spire = _spawn_structure(SCENE_KARST, s_data["pos"], Vector3(0, s_data["rot"], 0), s_data["scale"])
+		var spire = _spawn_destructible(SCENE_KARST, s_data["pos"], Vector3(0, s_data["rot"], 0), s_data["scale"], DestructibleProp.PropType.KARST_SPIRE, 350, false)
 		_setup_trimesh_collision(spire)
-
-		# Double-defense solid core collision (Convex Cylinder prevents any walk-through / glitch clipping)
-		var core_body = StaticBody3D.new()
-		core_body.name = "SpireCoreCollision"
-		var core_col = CollisionShape3D.new()
-		var core_shape = CylinderShape3D.new()
-		core_shape.radius = 4.6 * s_data["scale"].x
-		core_shape.height = 36.0 * s_data["scale"].y
-		core_col.shape = core_shape
-		core_col.position = Vector3(0.0, 16.0 * s_data["scale"].y, 0.0)
-		core_body.add_child(core_col)
-		spire.add_child(core_body)
 
 	# High Mountain Pass Shrine Torii Gate (Destructible)
 	var mountain_torii = _spawn_destructible(SCENE_TORII, Vector3(45.0, 7.8, 52.0), Vector3(0, -35, 0), Vector3(0.85, 0.85, 0.85), DestructibleProp.PropType.TORII, 120)
@@ -524,7 +512,7 @@ func _build_karst_peaks() -> void:
 func _build_kitsune_shrine_poi() -> void:
 	# 1. Ancient Fox Spirit (Kitsune) Shrine in a secluded clearing of Sakura Valley
 	var shrine_pos = Vector3(-32.0, 2.5, -18.0)
-	var shrine = _spawn_structure(SCENE_SHRINE, shrine_pos, Vector3(0, 45, 0), Vector3(1.1, 1.1, 1.1))
+	var shrine = _spawn_destructible(SCENE_SHRINE, shrine_pos, Vector3(0, 45, 0), Vector3(1.1, 1.1, 1.1), DestructibleProp.PropType.SHRINE, 180, true)
 	_setup_trimesh_collision(shrine)
 	_add_lantern_light(shrine, Vector3(0, 2.8, 0), Color(1.0, 0.45, 0.25), 1.8, 9.0)
 
@@ -544,7 +532,7 @@ func _build_kitsune_shrine_poi() -> void:
 func _build_river_wharf_poi() -> void:
 	# 2. Fisherman's Wharf, Mooring Pier & Sampan Boat along the lotus river
 	var dock_pos = Vector3(4.0, 0.1, 14.0)
-	var dock = _spawn_structure(SCENE_DOCK, dock_pos, Vector3(0, 90, 0), Vector3(1.0, 1.0, 1.0))
+	var dock = _spawn_destructible(SCENE_DOCK, dock_pos, Vector3(0, 90, 0), Vector3(1.0, 1.0, 1.0), DestructibleProp.PropType.DOCK, 140, false)
 	_setup_trimesh_collision(dock)
 
 	# Dock Walkway Solid Collision (Box collision for sturdy deck walking)
@@ -563,7 +551,7 @@ func _build_river_wharf_poi() -> void:
 	_spawn_destructible(SCENE_CRATES, Vector3(4.2, 0.5, 16.5), Vector3(0, -35, 0), Vector3(0.95, 0.95, 0.95), DestructibleProp.PropType.CRATE, 50)
 
 	# Riverside Campfire for cooking fish & resting
-	var campfire = _spawn_structure(SCENE_CAMPFIRE, Vector3(8.5, 0.9, 13.5), Vector3(0, 20, 0))
+	var campfire = _spawn_destructible(SCENE_CAMPFIRE, Vector3(8.5, 0.9, 13.5), Vector3(0, 20, 0), Vector3.ONE, DestructibleProp.PropType.CAMPFIRE, 70, true)
 	_setup_trimesh_collision(campfire)
 	_spawn_campfire_particles(campfire)
 
@@ -576,7 +564,7 @@ func _build_bandit_camp_poi() -> void:
 	var camp_center = Vector3(38.0, 2.2, 18.0)
 
 	# Central Roaring Campfire
-	var campfire = _spawn_structure(SCENE_CAMPFIRE, camp_center, Vector3(0, 45, 0))
+	var campfire = _spawn_destructible(SCENE_CAMPFIRE, camp_center, Vector3(0, 45, 0), Vector3.ONE, DestructibleProp.PropType.CAMPFIRE, 70, true)
 	_setup_trimesh_collision(campfire)
 	_spawn_campfire_particles(campfire)
 
@@ -611,10 +599,10 @@ func _build_mountain_teahouse_poi() -> void:
 
 func _build_ancient_ruins_poi() -> void:
 	# 5. Overgrown Ancient Monolith Ruins in Bamboo Grove
-	var r1 = _spawn_structure(SCENE_RUIN, Vector3(-28.0, 2.6, 48.0), Vector3(0, 25, 0), Vector3(1.1, 1.1, 1.1))
+	var r1 = _spawn_destructible(SCENE_RUIN, Vector3(-28.0, 2.6, 48.0), Vector3(0, 25, 0), Vector3(1.1, 1.1, 1.1), DestructibleProp.PropType.RUIN, 220, true)
 	_setup_trimesh_collision(r1)
 
-	var r2 = _spawn_structure(SCENE_RUIN, Vector3(-34.0, 2.8, 54.0), Vector3(0, 115, 0), Vector3(1.0, 0.95, 1.0))
+	var r2 = _spawn_destructible(SCENE_RUIN, Vector3(-34.0, 2.8, 54.0), Vector3(0, 115, 0), Vector3(1.0, 0.95, 1.0), DestructibleProp.PropType.RUIN, 220, true)
 	_setup_trimesh_collision(r2)
 
 	# Ancient Crates left by previous explorers
@@ -1348,18 +1336,18 @@ func _setup_destructible_collision(d_prop: DestructibleProp, p_type: Destructibl
 		DestructibleProp.PropType.TOMB:
 			var col_t = CollisionShape3D.new()
 			var box_t = BoxShape3D.new()
-			box_t.size = Vector3(3.2, 2.6, 3.2)
+			box_t.size = Vector3(4.6, 3.4, 5.2)
 			col_t.shape = box_t
-			col_t.position = Vector3(0.0, 1.3, 0.0)
+			col_t.position = Vector3(0.0, 1.7, 0.0)
 			sb.add_child(col_t)
 
 		DestructibleProp.PropType.BONE_SPIRE:
 			var col_bs = CollisionShape3D.new()
 			var cyl_bs = CylinderShape3D.new()
-			cyl_bs.radius = 0.65
-			cyl_bs.height = 4.8
+			cyl_bs.radius = 1.45
+			cyl_bs.height = 7.8
 			col_bs.shape = cyl_bs
-			col_bs.position = Vector3(0.0, 2.4, 0.0)
+			col_bs.position = Vector3(0.0, 3.9, 0.0)
 			sb.add_child(col_bs)
 
 		DestructibleProp.PropType.CYBER_TOWER:
@@ -1388,7 +1376,62 @@ func _setup_destructible_collision(d_prop: DestructibleProp, p_type: Destructibl
 			col_dt.position = Vector3(0.0, 2.0, 0.0)
 			sb.add_child(col_dt)
 
+		DestructibleProp.PropType.SHRINE:
+			var col_s = CollisionShape3D.new()
+			var box_s = BoxShape3D.new()
+			box_s.size = Vector3(3.6, 3.8, 3.6)
+			col_s.shape = box_s
+			col_s.position = Vector3(0.0, 1.9, 0.0)
+			sb.add_child(col_s)
+
+		DestructibleProp.PropType.RUIN:
+			var col_r = CollisionShape3D.new()
+			var box_r = BoxShape3D.new()
+			box_r.size = Vector3(4.4, 3.8, 4.4)
+			col_r.shape = box_r
+			col_r.position = Vector3(0.0, 1.9, 0.0)
+			sb.add_child(col_r)
+
+		DestructibleProp.PropType.DOCK:
+			var col_d = CollisionShape3D.new()
+			var box_d = BoxShape3D.new()
+			box_d.size = Vector3(3.6, 1.4, 7.8)
+			col_d.shape = box_d
+			col_d.position = Vector3(0.8, 0.7, 0.0)
+			sb.add_child(col_d)
+
+		DestructibleProp.PropType.CAMPFIRE:
+			var col_cf = CollisionShape3D.new()
+			var cyl_cf = CylinderShape3D.new()
+			cyl_cf.radius = 1.2
+			cyl_cf.height = 1.4
+			col_cf.shape = cyl_cf
+			col_cf.position = Vector3(0.0, 0.7, 0.0)
+			sb.add_child(col_cf)
+
+		DestructibleProp.PropType.KARST_SPIRE:
+			var col_k = CollisionShape3D.new()
+			var cyl_k = CylinderShape3D.new()
+			cyl_k.radius = 5.2
+			cyl_k.height = 36.0
+			col_k.shape = cyl_k
+			col_k.position = Vector3(0.0, 18.0, 0.0)
+			sb.add_child(col_k)
+
 	d_prop.add_child(sb)
+
+	# Dedicated Area3D Hurtbox for instantaneous combat hit registration
+	var hb_area = Area3D.new()
+	hb_area.name = "DestructibleHurtbox"
+	hb_area.add_to_group("destructible_area")
+	hb_area.set_meta("destructible_parent", d_prop)
+	for col_child in sb.get_children():
+		if col_child is CollisionShape3D and col_child.shape:
+			var hb_col = CollisionShape3D.new()
+			hb_col.shape = col_child.shape
+			hb_col.position = col_child.position
+			hb_area.add_child(hb_col)
+	d_prop.add_child(hb_area)
 
 func _setup_trimesh_collision(node: Node) -> void:
 	if node is MeshInstance3D and node.mesh:

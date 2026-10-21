@@ -21,7 +21,12 @@ enum PropType {
 	BONE_SPIRE,  # Undead Bone Spires: fractures into calcified ribs, bone shards & violet flames
 	CYBER_TOWER, # Neo-Cyber Skyscraper Towers: collapses into metallic tech girders & glowing neon
 	CYBER_LAMP,  # Cyber Streetlamps & Bollards: shatters into cyber alloy & sparks
-	DEAD_TREE    # Blighted Twisted Dead Trees: snaps into rotten ashwood logs & soot
+	DEAD_TREE,   # Blighted Twisted Dead Trees: snaps into rotten ashwood logs & soot
+	SHRINE,      # Mountain Shrine: sacred timber, bells & golden talismans
+	RUIN,        # Ancient Stone Ruins: ancient carved granite & mystical dust
+	DOCK,        # Riverside Wooden Dock: planks & logs
+	CAMPFIRE,    # Campfire: charred logs, stones & glowing embers
+	KARST_SPIRE  # Giant Karst Peak / Spire: massive boulders & rock shards
 }
 
 @export var prop_type: PropType = PropType.TREE
@@ -60,7 +65,7 @@ func take_damage(amount: int, is_pyro: bool = false, is_heavy: bool = false, hit
 
 	# Audio feedback based on prop material
 	match prop_type:
-		PropType.LANTERN, PropType.TOMB:
+		PropType.LANTERN, PropType.TOMB, PropType.RUIN, PropType.KARST_SPIRE:
 			SoundSynth.play_material_hit(self, "stone")
 		PropType.BONE_SPIRE:
 			SoundSynth.play_material_hit(self, "bone")
@@ -68,9 +73,9 @@ func take_damage(amount: int, is_pyro: bool = false, is_heavy: bool = false, hit
 			SoundSynth.play_material_hit(self, "metal")
 		PropType.CYBER_TOWER, PropType.CYBER_LAMP:
 			SoundSynth.play_material_hit(self, "cyber")
-		PropType.SHOP, PropType.PAVILION, PropType.PAGODA:
+		PropType.SHOP, PropType.PAVILION, PropType.PAGODA, PropType.SHRINE:
 			SoundSynth.play_material_hit(self, "building")
-		PropType.BRIDGE:
+		PropType.BRIDGE, PropType.DOCK, PropType.CAMPFIRE:
 			SoundSynth.play_material_hit(self, "wood")
 		_:
 			SoundSynth.play_material_hit(self, "wood")
@@ -487,14 +492,29 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 			chunk_count = 16
 			w = 2.4; h = 2.8; d = 2.4
 		PropType.BONE_SPIRE:
-			chunk_count = 12
-			w = 0.8; h = 4.2; d = 0.8
+			chunk_count = 14
+			w = 1.2; h = 4.8; d = 1.2
 		PropType.CYBER_TOWER:
 			chunk_count = 24
 			w = 3.5; h = 9.0; d = 3.5
 		PropType.CYBER_LAMP:
 			chunk_count = 8
 			w = 0.6; h = 2.8; d = 0.6
+		PropType.SHRINE:
+			chunk_count = 16
+			w = 2.6; h = 3.4; d = 2.6
+		PropType.RUIN:
+			chunk_count = 18
+			w = 3.2; h = 3.6; d = 3.2
+		PropType.DOCK:
+			chunk_count = 14
+			w = 2.4; h = 1.2; d = 4.5
+		PropType.CAMPFIRE:
+			chunk_count = 8
+			w = 1.0; h = 0.8; d = 1.0
+		PropType.KARST_SPIRE:
+			chunk_count = 22
+			w = 4.2; h = 8.5; d = 4.2
 
 	# Spawn Dynamic Physics RigidBody3D Debris Chunks
 	for i in range(chunk_count):
@@ -508,10 +528,12 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 
 		# Categorize chunk style: timber beam, roof tile, or stone block
 		var piece_type = i % 3
-		if prop_type == PropType.LANTERN:
-			piece_type = 2 # All stone for lanterns
-		elif prop_type == PropType.CRATE:
-			piece_type = 0 # All timber for crates
+		if prop_type in [PropType.LANTERN, PropType.RUIN, PropType.KARST_SPIRE]:
+			piece_type = 2 # All stone for lanterns, ruins, karst spires
+		elif prop_type in [PropType.CRATE, PropType.DOCK, PropType.CAMPFIRE]:
+			piece_type = 0 # All timber / charred wood for crates, docks, campfires
+		elif prop_type == PropType.SHRINE:
+			piece_type = i % 2 # Vermilion timber & roof tiles
 
 		if prop_type == PropType.TOMB:
 			# Obsidian stone & bone fragments
@@ -519,7 +541,7 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 			mat.albedo_color = Color(0.18, 0.16, 0.20) if piece_type < 2 else Color(0.85, 0.82, 0.74)
 		elif prop_type == PropType.BONE_SPIRE:
 			# Calcified ribs & bone horns
-			b_mesh.size = Vector3(randf_range(0.12, 0.28), randf_range(0.5, 1.2), randf_range(0.12, 0.28))
+			b_mesh.size = Vector3(randf_range(0.18, 0.38), randf_range(0.6, 1.4), randf_range(0.18, 0.38))
 			mat.albedo_color = Color(0.88, 0.85, 0.78)
 		elif prop_type == PropType.CYBER_TOWER or prop_type == PropType.CYBER_LAMP:
 			# Tech alloy & glowing neon panels
@@ -532,17 +554,28 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 				mat.emission = Color(0.0, 0.95, 1.0)
 			else:
 				mat.albedo_color = Color(0.14, 0.16, 0.22)
+		elif prop_type == PropType.KARST_SPIRE or prop_type == PropType.RUIN:
+			# Massive ancient granite rock chunks
+			b_mesh.size = Vector3(randf_range(0.5, 1.1), randf_range(0.4, 0.9), randf_range(0.5, 1.1))
+			mat.albedo_color = Color(0.38, 0.36, 0.34) if prop_type == PropType.KARST_SPIRE else Color(0.32, 0.38, 0.35)
+		elif prop_type == PropType.CAMPFIRE:
+			# Charred campfire logs & glowing coals
+			b_mesh.size = Vector3(randf_range(0.15, 0.3), randf_range(0.15, 0.3), randf_range(0.4, 0.8))
+			mat.albedo_color = Color(0.1, 0.08, 0.08) if piece_type == 0 else Color(0.9, 0.25, 0.05)
+			if piece_type != 0:
+				mat.emission_enabled = true
+				mat.emission = Color(1.0, 0.35, 0.1)
 		elif piece_type == 0:
 			# Timber beam
 			b_mesh.size = Vector3(randf_range(0.25, 0.40), randf_range(0.25, 0.40), randf_range(1.1, 2.2))
-			if prop_type == PropType.TORII:
+			if prop_type in [PropType.TORII, PropType.SHRINE]:
 				mat.albedo_color = Color(0.85, 0.18, 0.12) # Crimson lacquer
 			else:
 				mat.albedo_color = Color(0.24, 0.15, 0.08) # Cedar wood
 		elif piece_type == 1:
 			# Curved roof tile / slab
 			b_mesh.size = Vector3(randf_range(0.5, 0.8), 0.10, randf_range(0.6, 1.0))
-			if prop_type == PropType.TORII:
+			if prop_type in [PropType.TORII, PropType.SHRINE]:
 				mat.albedo_color = Color(0.12, 0.12, 0.14) # Black cap
 			else:
 				mat.albedo_color = Color(0.16, 0.24, 0.28) # Asian ceramic teal/slate
@@ -559,7 +592,8 @@ func _collapse_building_sequence(hit_dir: Vector3, _is_heavy: bool) -> void:
 		chunk.add_child(col)
 		chunk.add_child(mesh_inst)
 
-		chunk.collision_layer = 1
+		# Debris chunks only collide with ground (layer 0, mask 1) - prevents physics stalls on web
+		chunk.collision_layer = 0
 		chunk.collision_mask = 1
 		chunk.mass = randf_range(4.0, 12.0)
 		chunk.linear_damp = 0.8

@@ -555,7 +555,10 @@ func play_voice_glider(_node: Node = null) -> void:
 		_play_voice_stream(glider_voices, true)
 
 func play_voice_pyro_skill(_node: Node = null) -> void:
-	_play_voice_stream(pyro_skill_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_skill_voices, true)
+	else:
+		_play_voice_stream(pyro_skill_voices, true)
 
 func play_voice_cryo_skill(_node: Node = null) -> void:
 	_play_voice_stream(ellen_skill_voices, true)
@@ -615,10 +618,16 @@ func play_voice_dash(_node: Node = null) -> void:
 		_play_voice_stream(dash_voices)
 
 func play_voice_menu_open(_node: Node = null) -> void:
-	_play_voice_stream(menu_open_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_idle_voices, true)
+	else:
+		_play_voice_stream(menu_open_voices, true)
 
 func play_voice_menu_close(_node: Node = null) -> void:
-	_play_voice_stream(menu_close_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_dash_voices, true)
+	else:
+		_play_voice_stream(menu_close_voices, true)
 
 func play_voice_lvlup(_node: Node = null) -> void:
 	if active_heroine == "ellen":
@@ -627,7 +636,10 @@ func play_voice_lvlup(_node: Node = null) -> void:
 		_play_voice_stream(lvlup_voices, true)
 
 func play_voice_menu_idle(_node: Node = null) -> void:
-	_play_voice_stream(menu_idle_voices, true)
+	if active_heroine == "ellen":
+		_play_voice_stream(ellen_idle_voices, true)
+	else:
+		_play_voice_stream(menu_idle_voices, true)
 
 func _play_voice_stream(pool: Array, interrupt: bool = false) -> void:
 	if pool.is_empty():
@@ -867,16 +879,32 @@ func play_material_hit(node: Node, mat_type: String) -> void:
 # ==================== HEROINE (PLAYER) DIALOGUE VOCALS ====================
 
 func play_heroine_dialogue_start() -> void:
-	if heroine_dialogue_start_stream:
-		_play_direct_voice(heroine_dialogue_start_stream)
+	if active_heroine == "ellen":
+		if ellen_vn_greet_stream:
+			_play_direct_voice(ellen_vn_greet_stream)
+		elif not ellen_idle_voices.is_empty():
+			_play_voice_stream(ellen_idle_voices, true)
+	else:
+		if heroine_dialogue_start_stream:
+			_play_direct_voice(heroine_dialogue_start_stream)
 
 func play_heroine_choice_recruit() -> void:
-	if heroine_choice_recruit_stream:
-		_play_direct_voice(heroine_choice_recruit_stream)
+	if active_heroine == "ellen":
+		if ellen_vn_accept_stream:
+			_play_direct_voice(ellen_vn_accept_stream)
+		elif not ellen_lvlup_voices.is_empty():
+			_play_voice_stream(ellen_lvlup_voices, true)
+	else:
+		if heroine_choice_recruit_stream:
+			_play_direct_voice(heroine_choice_recruit_stream)
 
 func play_heroine_choice_battle() -> void:
-	if heroine_choice_battle_stream:
-		_play_direct_voice(heroine_choice_battle_stream)
+	if active_heroine == "ellen":
+		if not ellen_attack_voices.is_empty():
+			_play_voice_stream(ellen_attack_voices, true)
+	else:
+		if heroine_choice_battle_stream:
+			_play_direct_voice(heroine_choice_battle_stream)
 
 # ==================== BIOME BGM CROSS-FADING ====================
 
