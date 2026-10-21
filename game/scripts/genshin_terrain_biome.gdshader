@@ -202,68 +202,91 @@ void fragment() {
 	w_cliff = max(w_cliff, w_karst_area * 0.85);
 
 	// -------------------------------------------------------------
-	// 2. BIOME COLOR GENERATION
+	// 2. BIOME COLOR GENERATION (Optimized with dynamic branch gating)
 	// -------------------------------------------------------------
 
 	// Base nature green grass with micro-variation
-	float grass_micro = get_grass_micro(xz);
+	float grass_micro = (w_sakura > 0.01 || w_bamboo > 0.01) ? get_grass_micro(xz) : 0.5;
 	vec3 col_sakura_grass = sakura_grass_col * (0.88 + grass_micro * 0.24);
-	col_sakura_grass += get_sakura_petals(xz) * w_sakura;
+	if (w_sakura > 0.01) {
+		col_sakura_grass += get_sakura_petals(xz) * w_sakura;
+	}
 
 	// Bamboo deep moss & leaf litter
-	float bamboo_noise = noise(xz * 4.0);
-	vec3 col_bamboo = mix(bamboo_moss_col, vec3(0.24, 0.38, 0.12), bamboo_noise * 0.45);
-	col_bamboo *= (0.85 + grass_micro * 0.25);
+	vec3 col_bamboo = bamboo_moss_col;
+	if (w_bamboo > 0.01) {
+		float bamboo_noise = noise(xz * 4.0);
+		col_bamboo = mix(bamboo_moss_col, vec3(0.24, 0.38, 0.12), bamboo_noise * 0.45);
+		col_bamboo *= (0.85 + grass_micro * 0.25);
+	}
 
 	// Shoreline Sand with damp gradient
-	float sand_noise = noise(xz * 6.0);
-	vec3 col_sand = river_sand_col * (0.90 + sand_noise * 0.20);
-	float wet_factor = 1.0 - smoothstep(-0.55, 0.15, y);
-	col_sand = mix(col_sand, col_sand * 0.58, wet_factor);
+	vec3 col_sand = river_sand_col;
+	float wet_factor = 0.0;
+	if (w_shore_sand > 0.01) {
+		float sand_noise = noise(xz * 6.0);
+		col_sand = river_sand_col * (0.90 + sand_noise * 0.20);
+		wet_factor = 1.0 - smoothstep(-0.55, 0.15, y);
+		col_sand = mix(col_sand, col_sand * 0.58, wet_factor);
+	}
 
 	// Underwater Riverbed with rounded pebbles & golden silt
-	float pebble_n1 = noise(xz * 4.0);
-	float pebble_n2 = noise(xz * 10.0);
-	vec3 col_riverbed = mix(vec3(0.32, 0.36, 0.34), vec3(0.48, 0.44, 0.38), pebble_n1 * 0.55 + pebble_n2 * 0.45);
+	vec3 col_riverbed = vec3(0.38, 0.39, 0.36);
+	if (w_riverbed > 0.01) {
+		float pebble_n1 = noise(xz * 4.0);
+		float pebble_n2 = noise(xz * 10.0);
+		col_riverbed = mix(vec3(0.32, 0.36, 0.34), vec3(0.48, 0.44, 0.38), pebble_n1 * 0.55 + pebble_n2 * 0.45);
 
-	// Authentic Voronoi Cellular Caustics (Optimized with dynamic riverbed branch)
-	float caust_mask = smoothstep(-0.35, -0.65, y) * (1.0 - smoothstep(3.4, 4.6, d_riv));
-	if (caust_mask > 0.01) {
-		float caust_t = TIME * 1.2;
-		float c1 = get_voronoi_caustics(xz * 1.2 + vec2(0.0, caust_t * 0.35), caust_t);
-		float c2 = get_voronoi_caustics(xz * 1.8 - vec2(caust_t * 0.25, caust_t * 0.4), caust_t * 1.2);
-		float voronoi_caust = min(c1, c2);
-		col_riverbed += vec3(0.55, 0.95, 1.0) * voronoi_caust * caust_mask * 0.55;
+		// Authentic Voronoi Cellular Caustics (Dynamic riverbed branch)
+		float caust_mask = smoothstep(-0.35, -0.65, y) * (1.0 - smoothstep(3.4, 4.6, d_riv));
+		if (caust_mask > 0.01) {
+			float caust_t = TIME * 1.2;
+			float c1 = get_voronoi_caustics(xz * 1.2 + vec2(0.0, caust_t * 0.35), caust_t);
+			float c2 = get_voronoi_caustics(xz * 1.8 - vec2(caust_t * 0.25, caust_t * 0.4), caust_t * 1.2);
+			float voronoi_caust = min(c1, c2);
+			col_riverbed += vec3(0.55, 0.95, 1.0) * voronoi_caust * caust_mask * 0.55;
+		}
 	}
 
 	// City Paved Flagstones
-	float flagstones = get_flagstone_pattern(xz);
-	vec3 col_city = city_stone_col * flagstones;
+	vec3 col_city = city_stone_col;
+	if (w_city > 0.01 || w_paved_roads > 0.01) {
+		float flagstones = get_flagstone_pattern(xz);
+		col_city = city_stone_col * flagstones;
+	}
 
 	// High School Campus
-	float school_asphalt = 0.92 + noise(xz * 12.0) * 0.15;
-	vec3 col_school = school_pave_col * school_asphalt;
+	vec3 col_school = school_pave_col;
+	if (w_school > 0.01) {
+		float school_asphalt = 0.92 + noise(xz * 12.0) * 0.15;
+		col_school = school_pave_col * school_asphalt;
+	}
 
 	// Blighted Undead Earth
-	float blight_noise = noise(xz * 3.0);
-	vec3 col_blight = mix(blight_ash_col, vec3(0.12, 0.10, 0.14), blight_noise * 0.5);
+	vec3 col_blight = blight_ash_col;
 	vec3 blight_veins = vec3(0.0);
 	if (w_blight > 0.01) {
+		float blight_noise = noise(xz * 3.0);
+		col_blight = mix(blight_ash_col, vec3(0.12, 0.10, 0.14), blight_noise * 0.5);
 		blight_veins = get_blight_veins(xz, TIME);
 	}
 
 	// Neo-Cyber City Asphalt with glowing circuits
-	float cyber_noise = noise(xz * 8.0);
-	vec3 col_cyber = cyber_asphalt_col * (0.92 + cyber_noise * 0.15);
+	vec3 col_cyber = cyber_asphalt_col;
 	vec3 cyber_grid_glow = vec3(0.0);
 	if (w_cyber > 0.01) {
+		float cyber_noise = noise(xz * 8.0);
+		col_cyber = cyber_asphalt_col * (0.92 + cyber_noise * 0.15);
 		cyber_grid_glow = get_cyber_grid(xz, TIME);
 	}
 
 	// Cliff Rock Strata
-	float rock_strata = sin(y * 1.8 + noise(xz * 0.5) * 4.0) * 0.15;
-	float rock_noise = noise(xz * 2.0);
-	vec3 col_cliff = cliff_rock_col * (0.85 + rock_strata + rock_noise * 0.25);
+	vec3 col_cliff = cliff_rock_col;
+	if (w_cliff > 0.01) {
+		float rock_strata = sin(y * 1.8 + noise(xz * 0.5) * 4.0) * 0.15;
+		float rock_noise = noise(xz * 2.0);
+		col_cliff = cliff_rock_col * (0.85 + rock_strata + rock_noise * 0.25);
+	}
 
 	// -------------------------------------------------------------
 	// 3. COMPOSITE BLEND

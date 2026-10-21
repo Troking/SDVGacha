@@ -347,10 +347,12 @@ func _ready() -> void:
 			p.stream = st
 			p.volume_db = -10.0 if b_id == "asian" else -80.0
 			add_child(p)
-			p.play()
 			var capture_p = p
-			p.finished.connect(func(): if is_instance_valid(capture_p): capture_p.play())
+			p.finished.connect(func(): if is_instance_valid(capture_p) and capture_p.is_playing(): capture_p.play())
 			bgm_players[b_id] = p
+			# Only start playing the initial spawn biome (asian) to conserve audio mixer CPU
+			if b_id == "asian":
+				p.play()
 	asian_bgm_player = bgm_players.get("asian", null)
 
 	# Water interaction audio streams
@@ -804,7 +806,15 @@ func update_biome_bgm(new_biome: String) -> void:
 	if old_p and is_instance_valid(old_p):
 		var tw_out = create_tween()
 		tw_out.tween_property(old_p, "volume_db", -80.0, 1.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# Stop old player after fadeout to free up Web Audio decoding & software mixer channels
+		tw_out.finished.connect(func():
+			if is_instance_valid(old_p) and current_biome_id != old_p.name.trim_prefix("BGM_"):
+				old_p.stop()
+		)
 	if new_p and is_instance_valid(new_p):
+		if not new_p.is_playing():
+			new_p.volume_db = -80.0
+			new_p.play()
 		var base_vol = 0.32 if new_biome == "asian" else 0.28
 		var target_vol = -80.0 if music_volume_scale <= 0.01 else linear_to_db(music_volume_scale * base_vol)
 		var tw_in = create_tween()

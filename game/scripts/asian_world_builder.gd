@@ -144,8 +144,8 @@ func _build_water_lake_and_river(water_mat: Material) -> void:
 	water_plane.name = "ReflectiveWaterSurface"
 	var p_mesh = PlaneMesh.new()
 	p_mesh.size = Vector2(24.0, 210.0)
-	p_mesh.subdivide_width = 48
-	p_mesh.subdivide_depth = 192
+	p_mesh.subdivide_width = 16
+	p_mesh.subdivide_depth = 64
 	water_plane.mesh = p_mesh
 	if water_mat:
 		water_plane.material_override = water_mat

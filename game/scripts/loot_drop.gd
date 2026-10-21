@@ -34,15 +34,23 @@ func _ready() -> void:
 		randf_range(-2.8, 2.8)
 	)
 
+var total_life_time: float = 0.0
+
 func _physics_process(delta: float) -> void:
 	if is_collected:
+		return
+
+	total_life_time += delta
+	if total_life_time > 60.0 or global_position.y < -15.0:
+		queue_free()
 		return
 
 	if not is_grounded:
 		velocity.y -= 14.0 * delta
 		global_position += velocity * delta
-		if global_position.y <= 0.4:
-			global_position.y = 0.4
+		var ground_y = AsianWorldBuilder.get_terrain_height(global_position.x, global_position.z)
+		if global_position.y <= ground_y + 0.35:
+			global_position.y = ground_y + 0.35
 			velocity = Vector3.ZERO
 			is_grounded = true
 	else:
@@ -55,6 +63,8 @@ func _physics_process(delta: float) -> void:
 		if player and is_instance_valid(player):
 			var player_target = player.global_position + Vector3(0, 0.7, 0)
 			var dist = global_position.distance_to(player_target)
+			if omni_light:
+				omni_light.visible = (dist <= 12.0)
 			if dist <= MAGNET_RADIUS:
 				magnet_speed = move_toward(magnet_speed, 16.0, delta * 28.0)
 				var dir = (player_target - global_position).normalized()

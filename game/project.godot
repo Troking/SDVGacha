@@ -147,7 +147,14 @@ lights_and_shadows/directional_shadow/soft_shadow_filter_quality=2
 lights_and_shadows/positional_shadow/atlas_size=2048
 lights_and_shadows/positional_shadow/soft_shadow_filter_quality=2
 anti_aliasing/quality/msaa_3d=1
-anti_aliasing/quality/screen_space_aa=1
+anti_aliasing/quality/screen_space_aa=0
+anti_aliasing/quality/screen_space_aa.web=0
+lights_and_shadows/directional_shadow/size.web=1024
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality.web=1
+lights_and_shadows/positional_shadow/atlas_size.web=1024
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality.web=1
+anti_aliasing/quality/msaa_3d.web=0
+scaling_3d/scale.web=1.0
 environment/defaults/default_clear_color=Color(0.55, 0.78, 0.95, 1.0)
 
 

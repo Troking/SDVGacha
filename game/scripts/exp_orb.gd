@@ -22,6 +22,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	life_time += delta
+	if life_time > 10.0 or global_position.y < -15.0:
+		collect()
+		return
 
 	if not is_homing:
 		# Arc trajectory before homing

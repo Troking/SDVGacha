@@ -1,6 +1,9 @@
 extends CharacterBody3D
 class_name ChibiEnemy
 
+const CEL_SHADER = preload("res://scripts/genshin_cel_shader.gdshader")
+static var _material_cache: Dictionary = {}
+
 @export var enemy_name: String = "Слизнюк"
 @export var max_hp: int = 40
 @export var exp_reward: int = 25
@@ -111,9 +114,8 @@ func _setup_monster_appearance() -> void:
 			eye.material_override = e_mat
 
 func _apply_cel_shading() -> void:
-	var shader = load("res://scripts/genshin_cel_shader.gdshader")
 	var visual_node = get_node_or_null("Visual")
-	if not shader or not visual_node:
+	if not visual_node:
 		return
 	for m in visual_node.find_children("*", "MeshInstance3D", true, false):
 		if m is MeshInstance3D:
@@ -121,16 +123,22 @@ func _apply_cel_shading() -> void:
 			if not mat and m.mesh and m.mesh.get_surface_count() > 0:
 				mat = m.get_active_material(0)
 			
-			var toon = ShaderMaterial.new()
-			toon.shader = shader
 			if mat is StandardMaterial3D:
-				toon.set_shader_parameter("albedo_color", mat.albedo_color)
-				if mat.albedo_texture:
-					toon.set_shader_parameter("use_texture", true)
-					toon.set_shader_parameter("albedo_texture", mat.albedo_texture)
+				var tex_key = mat.albedo_texture.resource_path if mat.albedo_texture else "none"
+				var cache_key = str(mat.albedo_color) + "_" + tex_key
+				if _material_cache.has(cache_key):
+					m.material_override = _material_cache[cache_key]
 				else:
-					toon.set_shader_parameter("use_texture", false)
-			m.material_override = toon
+					var toon = ShaderMaterial.new()
+					toon.shader = CEL_SHADER
+					toon.set_shader_parameter("albedo_color", mat.albedo_color)
+					if mat.albedo_texture:
+						toon.set_shader_parameter("use_texture", true)
+						toon.set_shader_parameter("albedo_texture", mat.albedo_texture)
+					else:
+						toon.set_shader_parameter("use_texture", false)
+					_material_cache[cache_key] = toon
+					m.material_override = toon
 
 func _physics_process(delta: float) -> void:
 	if not player or not is_instance_valid(player):
