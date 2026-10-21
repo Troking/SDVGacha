@@ -75,17 +75,6 @@
 
 ---
 
-## 🛠️ Сборка и запуск
-
-### Запуск через Godot Engine 4
-1. Склонируйте репозиторий:
-   ```bash
-   git clone https://github.com/Troking/SDVGacha.git
-   cd SDVGacha
-   ```
-2. Откройте проект в **Godot Engine 4.3+**:
-   * Импортируйте папку `game` как проект (`game/project.godot`).
-   * Нажмите кнопку **Запустить проект (F5)**.
-
-### Веб-экспорт (HTML5 / WebAssembly)
-Проект экспортируется в Web автоматически через **GitHub Actions** при каждом коммите в ветку `main` благодаря преднастроенному воркфлоу `.github/workflows/deploy-pages.yml` с поддержкой `coi-serviceworker.js` (SharedArrayBuffer на GitHub Pages).
+## 🎮 Играть прямо сейчас в браузере
+Игра полностью скомпилирована в WebAssembly и запускается мгновенно онлайн без каких-либо установок:  
+👉 **[https://troking.github.io/SDVGacha/](https://troking.github.io/SDVGacha/)**
