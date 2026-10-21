@@ -36,21 +36,39 @@ var breeze_state: int = 0 # 0 = LULL (peaceful quiet), 1 = GENTLE_GUST (soft fal
 var breeze_timer: float = 7.0
 
 func _ready() -> void:
-	SCENE_UNDEAD_TOMB = load("res://assets/models/undead_crypt_tomb.glb")
-	SCENE_BONE_SPIRE = load("res://assets/models/undead_bone_spire.glb")
-	SCENE_CYBER_TOWER = load("res://assets/models/cyber_skyscraper_tower.glb")
-	SCENE_CYBER_LAMP = load("res://assets/models/cyber_street_lamp.glb")
+	# Immediate frame 0: Build base terrain, boundary walls, and starting city district
 	_build_terrain()
 	_build_world_boundary_walls()
 	_build_asian_city()
 	_build_sakura_valley()
+
+	# Stagger remaining biomes across frames to prevent WebAssembly execution stalls
+	call_deferred("_build_remaining_biomes_progressive")
+
+func _build_remaining_biomes_progressive() -> void:
+	SCENE_UNDEAD_TOMB = load("res://assets/models/undead_crypt_tomb.glb")
+	SCENE_BONE_SPIRE = load("res://assets/models/undead_bone_spire.glb")
+	SCENE_CYBER_TOWER = load("res://assets/models/cyber_skyscraper_tower.glb")
+	SCENE_CYBER_LAMP = load("res://assets/models/cyber_street_lamp.glb")
+
 	_build_bamboo_forest()
-	_build_karst_peaks()
 	_build_kitsune_shrine_poi()
 	_build_river_wharf_poi()
 	_build_bandit_camp_poi()
+
+	var tree = get_tree()
+	if not tree:
+		return
+	await tree.process_frame
+
+	_build_karst_peaks()
 	_build_mountain_teahouse_poi()
 	_build_ancient_ruins_poi()
+
+	if not is_instance_valid(self) or not get_tree():
+		return
+	await get_tree().process_frame
+
 	_build_blighted_undead_lands()
 	_build_cyber_city()
 	_build_atmospheric_particles()

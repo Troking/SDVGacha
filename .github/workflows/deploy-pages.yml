@@ -64,7 +64,7 @@ jobs:
           # Step 2: Clean export pass
           godot -v --headless --export-release "Web" build/web/index.html
           touch build/web/.nojekyll
-          python3 ../tools/inject_web_fullscreen.py build/web/index.html
+          python3 ../tools/inject_web_optimizations.py build/web/index.html
           ls -la build/web/
 
       - name: Setup GitHub Pages

@@ -346,9 +346,9 @@ func _ready() -> void:
 	hit_slime_stream = _load_audio("res://assets/sounds/hit_materials/hit_slime.wav")
 
 	# Biome BGM Streams
-	school_bgm_stream = _load_audio("res://assets/sounds/bgm/anime_school_days.wav")
-	blight_bgm_stream = _load_audio("res://assets/sounds/bgm/blighted_plaguelands.wav")
-	cyber_bgm_stream = _load_audio("res://assets/sounds/bgm/cyber_city_pulse.wav")
+	school_bgm_stream = _load_audio("res://assets/sounds/bgm/anime_school_days.mp3")
+	blight_bgm_stream = _load_audio("res://assets/sounds/bgm/blighted_plaguelands.mp3")
+	cyber_bgm_stream = _load_audio("res://assets/sounds/bgm/cyber_city_pulse.mp3")
 
 	# Monsters audio loading
 	slime_hop_stream = _load_audio("res://assets/sounds/monsters/slime_hop.wav")
