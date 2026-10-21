@@ -26,6 +26,7 @@ var weapon_node: Node3D = null
 var tail_sway_time: float = 0.0
 var last_global_pos: Vector3 = Vector3.ZERO
 var tail_inertia: float = 0.0
+var current_tail_rot: Vector3 = Vector3.ZERO
 
 # Blinking System (Ellen's cool, slightly sleepy half-lidded gaze)
 var blink_timer: float = 3.5
@@ -94,31 +95,16 @@ func _setup_attachments() -> void:
 	if tail_scene:
 		tail_node = tail_scene.instantiate() as Node3D
 		tail_node.name = "SharkTail"
-		tail_node.position = Vector3(0, 0.05, -0.12)
-		tail_node.rotation_degrees = Vector3(15, 180, 0)
-		tail_node.scale = Vector3(1.15, 1.15, 1.15)
+		# Position naturally at Ellen's sacrum (lower back)
+		tail_node.position = Vector3(0.0, -0.04, -0.08)
+		tail_node.rotation_degrees = Vector3.ZERO
+		tail_node.scale = Vector3.ONE
 		hips_att.add_child(tail_node)
 
-		# Apply organic undulating shark tail cel-shader
-		var shader = load("res://scripts/genshin_cel_shader.gdshader")
-		for m in tail_node.find_children("*", "MeshInstance3D", true, false):
-			if m is MeshInstance3D and m.mesh:
-				var toon = ShaderMaterial.new()
-				toon.shader = shader
-				toon.set_shader_parameter("is_tail", true)
-				toon.set_shader_parameter("tail_sway_strength", 1.0)
-				var mat = m.get_active_material(0)
-				if mat is StandardMaterial3D:
-					toon.set_shader_parameter("albedo_color", mat.albedo_color)
-					if mat.albedo_texture:
-						toon.set_shader_parameter("use_texture", true)
-						toon.set_shader_parameter("albedo_texture", mat.albedo_texture)
-				tail_material = toon
-				m.material_override = toon
-
-		# Add frost particles to tail tip
+		# Add cold frost particles to the caudal fin tip
 		var frost = CPUParticles3D.new()
 		frost.name = "TailFrost"
+		frost.position = Vector3(0.0, -0.15, -1.30)
 		frost.amount = 14
 		frost.lifetime = 1.1
 		frost.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
@@ -258,37 +244,39 @@ func _update_shark_tail(delta: float) -> void:
 	if not tail_node:
 		return
 
-	# Calculate movement inertia for the tail
+	# Movement tracking
 	var move_delta = (global_position - last_global_pos)
 	last_global_pos = global_position
 	var move_speed = move_delta.length() / max(delta, 0.001)
-	tail_inertia = lerp(tail_inertia, move_speed, delta * 5.0)
+	tail_inertia = lerp(tail_inertia, move_speed, delta * 4.5)
 
 	# Lateral inertia from turning and strafing
 	var right = global_transform.basis.x
 	var lat_accel = right.dot(move_delta) / max(delta, 0.001)
-	var target_inertia_x = clamp(-lat_accel * 0.12, -1.8, 1.8)
 
-	# Drive vertex shader parameters for organic supple shark swimming
-	if tail_material:
-		var sway_str = 0.70 + clamp(tail_inertia * 0.25, 0.0, 2.2)
-		tail_material.set_shader_parameter("tail_sway_strength", sway_str)
-		tail_material.set_shader_parameter("tail_inertia_x", target_inertia_x)
+	# Smooth canonical predatory shark tail secondary physics:
+	# Idle: slow, heavy, breathing sway
+	# Motion: hydrodynamic fluid undulating wave lagging behind player rotation
+	var is_moving = tail_inertia > 0.35
+	var sway_freq = 1.35 if not is_moving else (2.0 + clamp(tail_inertia * 0.4, 0.0, 2.5))
+	var sway_amp = 3.6 if not is_moving else clamp(4.0 + tail_inertia * 1.5, 4.0, 11.0)
 
-	# Natural predatory shark tail swimming sway
-	# Slower, heavier, more organic in idle, swift in motion
-	var sway_freq = 1.8 + clamp(tail_inertia * 0.45, 0.0, 3.2)
-	var sway_amp = 8.0 + clamp(tail_inertia * 1.5, 0.0, 12.0)
+	var sway_yaw = sin(tail_sway_time * sway_freq) * sway_amp
+	var sway_roll = cos(tail_sway_time * (sway_freq * 0.85)) * (sway_amp * 0.28)
+	var sway_pitch = sin(tail_sway_time * (sway_freq * 1.6)) * (1.2 if not is_moving else 2.2)
 
-	var sway_y = sin(tail_sway_time * sway_freq) * sway_amp
-	var sway_roll = cos(tail_sway_time * (sway_freq * 0.85)) * (sway_amp * 0.25)
-	var sway_pitch = sin(tail_sway_time * (sway_freq * 1.6)) * 2.8
+	# Centrifugal/lateral turn lag
+	var turn_lag = clamp(-lat_accel * 3.5, -15.0, 15.0)
 
-	tail_node.rotation_degrees = Vector3(
-		12.0 + sway_pitch,
-		180.0 + sway_y,
-		sway_roll
-	)
+	# Forward motion causes the heavy tail to streamline behind (-Y resting droop decreases)
+	var stream_lift = clamp(tail_inertia * 1.0, 0.0, 4.5)
+	var target_pitch = -3.0 + stream_lift + sway_pitch
+	var target_yaw = turn_lag + sway_yaw
+	var target_roll = sway_roll
+
+	var target_rot = Vector3(target_pitch, target_yaw, target_roll)
+	current_tail_rot = current_tail_rot.lerp(target_rot, delta * 9.0)
+	tail_node.rotation_degrees = current_tail_rot
 
 func _update_blinking(delta: float) -> void:
 	if not face_eye_mesh or blink_shape_l_idx < 0:
