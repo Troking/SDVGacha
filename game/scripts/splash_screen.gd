@@ -264,8 +264,8 @@ func _setup_center_bottom_cta() -> void:
 
 	start_button = Button.new()
 	start_button.name = "StartButton"
-	start_button.text = "✦   ИГРАТЬ ОНЛАЙН • НА ВЕСЬ ЭКРАН ⛶   ✦"
-	start_button.custom_minimum_size = Vector2(460, 64)
+	start_button.text = "✦   ВОЙТИ В МИР   ✦"
+	start_button.custom_minimum_size = Vector2(340, 58)
 	start_button.focus_mode = Control.FOCUS_NONE
 
 	var sb_btn = StyleBoxFlat.new()
@@ -275,25 +275,25 @@ func _setup_center_bottom_cta() -> void:
 	sb_btn.border_width_right = 2
 	sb_btn.border_width_bottom = 2
 	sb_btn.border_color = Color(1.0, 0.82, 0.35, 1.0)
-	sb_btn.corner_radius_top_left = 14
-	sb_btn.corner_radius_top_right = 14
-	sb_btn.corner_radius_bottom_left = 14
-	sb_btn.corner_radius_bottom_right = 14
-	sb_btn.shadow_color = Color(1.0, 0.55, 0.1, 0.55)
-	sb_btn.shadow_size = 12
+	sb_btn.corner_radius_top_left = 12
+	sb_btn.corner_radius_top_right = 12
+	sb_btn.corner_radius_bottom_left = 12
+	sb_btn.corner_radius_bottom_right = 12
+	sb_btn.shadow_color = Color(1.0, 0.55, 0.1, 0.45)
+	sb_btn.shadow_size = 8
 
 	var sb_btn_hover = sb_btn.duplicate() as StyleBoxFlat
-	sb_btn_hover.bg_color = Color(0.28, 0.15, 0.08, 0.98)
+	sb_btn_hover.bg_color = Color(0.25, 0.14, 0.08, 0.95)
 	sb_btn_hover.border_color = Color(1.0, 0.95, 0.65, 1.0)
-	sb_btn_hover.shadow_size = 18
-	sb_btn_hover.shadow_color = Color(1.0, 0.65, 0.15, 0.75)
+	sb_btn_hover.shadow_size = 14
+	sb_btn_hover.shadow_color = Color(1.0, 0.65, 0.15, 0.65)
 
 	start_button.add_theme_stylebox_override("normal", sb_btn)
 	start_button.add_theme_stylebox_override("hover", sb_btn_hover)
 	start_button.add_theme_stylebox_override("pressed", sb_btn_hover)
 	start_button.add_theme_color_override("font_color", Color(1.0, 0.95, 0.75))
 	start_button.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
-	start_button.add_theme_font_size_override("font_size", 21)
+	start_button.add_theme_font_size_override("font_size", 20)
 
 	start_button.mouse_entered.connect(func():
 		SoundSynth.play_ui_hover(self)
@@ -305,13 +305,13 @@ func _setup_center_bottom_cta() -> void:
 		t.tween_property(start_button, "scale", Vector2(1.0, 1.0), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	)
 	start_button.pressed.connect(start_game)
-	start_button.pivot_offset = Vector2(230, 32)
+	start_button.pivot_offset = Vector2(170, 29)
 	c_hbox.add_child(start_button)
 
 	# Keyboard/Touch Prompt Subtitle
 	start_prompt_label = Label.new()
 	start_prompt_label.name = "PromptLabel"
-	start_prompt_label.text = "[ КЛИКНИТЕ ДЛЯ СТАРТА НА ВЕСЬ ЭКРАН • ENTER / ПРОБЕЛ ]"
+	start_prompt_label.text = "[ КЛИКНИТЕ ИЛИ НАЖМИТЕ ENTER / ПРОБЕЛ ]"
 	start_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	start_prompt_label.add_theme_font_size_override("font_size", 13)
 	start_prompt_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.7, 0.85))
@@ -366,10 +366,6 @@ func start_game() -> void:
 	if is_starting or active_modal:
 		return
 	is_starting = true
-
-	# Automatically request browser/desktop full-screen mode on launch
-	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN:
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 	if prompt_tween: prompt_tween.kill()
 	if bg_tween: bg_tween.kill()

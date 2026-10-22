@@ -1,30 +1,11 @@
 # 🌟 SDVGacha — 3D Anime Action RPG
 
-<div align="center">
-
 ![SDVGacha Title Screen](game/assets/textures/game_cover.png)
 
-<br>
-
-# ⚔️ [👉 НАЖМИТЕ ЗДЕСЬ, ЧТОБЫ ИГРАТЬ ОНЛАЙН НА ВЕСЬ ЭКРАН 👈](https://troking.github.io/SDVGacha/)
-
-<a href="https://troking.github.io/SDVGacha/" target="_blank">
-  <img src="https://img.shields.io/badge/▶_ИГРАТЬ_ОНЛАЙН_В_БРАУЗЕРЕ-(НА_ВЕСЬ_ЭКРАН)-E02E2E?style=for-the-badge&logo=googlechrome&logoColor=white&labelColor=1a1a24" height="56" />
-</a>
-&nbsp;
-<a href="https://troking.github.io/SDVGacha/" target="_blank">
-  <img src="https://img.shields.io/badge/⚡_60_FPS-WEBGL_%2F_WASM-00C853?style=for-the-badge&logo=webassembly&logoColor=white&labelColor=1a1a24" height="56" />
-</a>
-&nbsp;
-<a href="https://troking.github.io/SDVGacha/" target="_blank">
-  <img src="https://img.shields.io/badge/📱_ПК_И_СМАРТФОНЫ-СЕНСОР_+_WASD-304FFE?style=for-the-badge&labelColor=1a1a24" height="56" />
-</a>
-
-<p><b>✨ Игра запускается мгновенно прямо в браузере без скачивания и без установки! ✨</b></p>
+> **🎮 Играть онлайн в браузере (GitHub Pages):**  
+> **👉 [https://troking.github.io/SDVGacha/](https://troking.github.io/SDVGacha/)**
 
 ---
-
-</div>
 
 ## 📖 О проекте
 
@@ -90,19 +71,6 @@
 
 ---
 
-<div align="center">
-
-## 🚀 ГОТОВЫ К БИТВЕ?
-### Нажмите кнопку ниже, чтобы запустить игру в браузере сразу на весь экран:
-
-<br>
-
-<a href="https://troking.github.io/SDVGacha/" target="_blank">
-  <img src="https://img.shields.io/badge/⚔️_ЗАПУСТИТЬ_SDVGACHA_ОНЛАЙН-(НА_ВЕСЬ_ЭКРАН)-FF9800?style=for-the-badge&logo=playstation&logoColor=white&labelColor=212121" height="60" />
-</a>
-
-<br><br>
-
+## 🎮 Играть прямо сейчас в браузере
+Игра полностью скомпилирована в WebAssembly и запускается мгновенно онлайн без каких-либо установок:  
 👉 **[https://troking.github.io/SDVGacha/](https://troking.github.io/SDVGacha/)**
-
-</div>

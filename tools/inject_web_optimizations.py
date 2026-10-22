@@ -3,9 +3,8 @@
 ⚡ WEB OPTIMIZATIONS & FAST-LOAD ENHANCER
 Injects:
 1. Parallel fetch preloading for index.wasm & index.pck
-2. High-visibility full-screen launcher button
-3. Anime-styled loading screen with exact percentage, MB counter, and dynamic tips
-4. Robust display: none handling when Godot initialization finishes
+2. Anime-styled loading screen with exact percentage, MB counter, and dynamic tips
+3. Robust display: none handling when Godot initialization finishes
 """
 
 import sys
@@ -27,41 +26,10 @@ def inject(index_path: Path) -> None:
     if "</head>" in html and "index.wasm" not in html.split("</head>")[0]:
         html = html.replace("</head>", preload_tags + "\n\t</head>", 1)
 
-    # 2. Modern Anime Loading Screen & Fullscreen Button
+    # 2. Modern Anime Loading Screen (without any extra floating buttons)
     enhancement = """
 <!-- ==================== SDVGACHA WEB ENHANCEMENTS ==================== -->
 <style>
-/* Fullscreen Toggle Floating Widget */
-#web-fullscreen-btn {
-	position: fixed;
-	top: 14px;
-	right: 14px;
-	z-index: 9999999;
-	background: linear-gradient(135deg, rgba(22, 18, 32, 0.94), rgba(42, 22, 14, 0.96));
-	color: #ffe082;
-	border: 2px solid #ffd54f;
-	padding: 10px 22px;
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-	font-size: 14px;
-	font-weight: 700;
-	border-radius: 14px;
-	cursor: pointer;
-	box-shadow: 0 4px 20px rgba(0, 0, 0, 0.65), 0 0 14px rgba(255, 180, 0, 0.45);
-	transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-	letter-spacing: 0.5px;
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	backdrop-filter: blur(8px);
-}
-#web-fullscreen-btn:hover {
-	transform: scale(1.05);
-	background: linear-gradient(135deg, rgba(42, 28, 56, 0.98), rgba(68, 32, 18, 0.98));
-	border-color: #ffffff;
-	color: #ffffff;
-	box-shadow: 0 6px 26px rgba(255, 190, 0, 0.7);
-}
-
 /* Anime Loading Screen Overhaul */
 #status {
 	background: radial-gradient(circle at center, #181528 0%, #08060f 100%);
@@ -145,34 +113,7 @@ def inject(index_path: Path) -> None:
 }
 </style>
 
-<button id="web-fullscreen-btn" onclick="toggleWebFullscreen()">⛶ НА ВЕСЬ ЭКРАН</button>
-
 <script>
-// Fullscreen Toggle
-function toggleWebFullscreen() {
-	var btn = document.getElementById('web-fullscreen-btn');
-	if (!document.fullscreenElement) {
-		document.documentElement.requestFullscreen().then(function() {
-			if (btn) btn.innerHTML = '🗗 ОКОННЫЙ РЕЖИМ';
-		}).catch(function(err) {});
-	} else {
-		if (document.exitFullscreen) {
-			document.exitFullscreen().then(function() {
-				if (btn) btn.innerHTML = '⛶ НА ВЕСЬ ЭКРАН';
-			});
-		}
-	}
-}
-document.addEventListener('fullscreenchange', function() {
-	var btn = document.getElementById('web-fullscreen-btn');
-	if (!btn) return;
-	if (document.fullscreenElement) {
-		btn.innerHTML = '🗗 ОКОННЫЙ РЕЖИМ';
-	} else {
-		btn.innerHTML = '⛶ НА ВЕСЬ ЭКРАН';
-	}
-});
-
 // Setup Anime Loading Card
 window.addEventListener('DOMContentLoaded', function() {
 	var status = document.getElementById('status');
@@ -241,7 +182,7 @@ window.addEventListener('DOMContentLoaded', function() {
 </script>
 """
 
-    if "</body>" in html and "#web-fullscreen-btn" not in html:
+    if "</body>" in html and "#custom-loading-card" not in html:
         html = html.replace("</body>", enhancement + "\n</body>")
         index_path.write_text(html, encoding="utf-8")
         print(f"Successfully injected web optimizations into {index_path}")
