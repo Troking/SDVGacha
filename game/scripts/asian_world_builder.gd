@@ -36,6 +36,7 @@ var breeze_state: int = 0 # 0 = LULL (peaceful quiet), 1 = GENTLE_GUST (soft fal
 var breeze_timer: float = 7.0
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Immediate frame 0: Build base terrain, boundary walls, and starting city district
 	_build_terrain()
 	_build_world_boundary_walls()
@@ -77,7 +78,8 @@ func _build_remaining_biomes_progressive() -> void:
 
 
 func _process(delta: float) -> void:
-	_update_sakura_breeze(delta)
+	if not get_tree().paused:
+		_update_sakura_breeze(delta)
 
 func _update_sakura_breeze(delta: float) -> void:
 	if not player_node or not is_instance_valid(player_node):

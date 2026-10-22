@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-⚡ WEB OPTIMIZATIONS & FAST-LOAD ENHANCER
-Injects:
-1. Parallel fetch preloading for index.wasm & index.pck
-2. Anime-styled loading screen with exact percentage, MB counter, and dynamic tips
-3. Robust display: none handling when Godot initialization finishes
+⚡ WEB OPTIMIZATIONS & FAST-LOAD ENHANCER (MOBILE & PC)
+Features:
+1. Direct event-driven progress hook into Godot engine onProgress (zero polling, zero WebKit lag)
+2. Mobile & desktop responsive layout (fits landscape smartphones, portrait, and desktop 4K)
+3. Portrait orientation helper for smartphones
+4. Clean removal of conflicting preloads that cause duplicate downloads on mobile Safari
 """
 
 import sys
@@ -17,21 +18,35 @@ def inject(index_path: Path) -> None:
 
     html = index_path.read_text(encoding="utf-8")
 
-    # 1. Preload hints in <head> for maximum parallel download speed over HTTP/2
-    preload_tags = """
-		<!-- Fast-load HTTP/2 parallel resource preloading -->
-		<link rel="preload" href="index.wasm" as="fetch" type="application/wasm" crossorigin="anonymous">
-		<link rel="preload" href="index.pck" as="fetch" crossorigin="anonymous">
-"""
-    if "</head>" in html and "index.wasm" not in html.split("</head>")[0]:
-        html = html.replace("</head>", preload_tags + "\n\t</head>", 1)
+    # Remove any old preload tags that caused CORS mismatch / duplicate 65MB downloads on mobile
+    if '<link rel="preload" href="index.wasm"' in html:
+        import re
+        html = re.sub(r'\s*<!-- Fast-load HTTP/2 parallel resource preloading -->\s*', '\n', html)
+        html = re.sub(r'\s*<link rel="preload" href="index\.wasm"[^>]*>', '', html)
+        html = re.sub(r'\s*<link rel="preload" href="index\.pck"[^>]*>', '', html)
 
-    # 2. Modern Anime Loading Screen (without any extra floating buttons)
+    # Hook directly into Godot's onProgress callback
+    target_onprogress = """statusProgress.value = current;
+					statusProgress.max = total;"""
+    replacement_onprogress = """statusProgress.value = current;
+					statusProgress.max = total;
+					if (window.updateCustomProgress) {
+						window.updateCustomProgress(current, total);
+					}"""
+    if target_onprogress in html and "window.updateCustomProgress" not in html:
+        html = html.replace(target_onprogress, replacement_onprogress, 1)
+
+    # Modern Anime Loading Screen (Responsive for mobile landscape, portrait, and PC)
     enhancement = """
 <!-- ==================== SDVGACHA WEB ENHANCEMENTS ==================== -->
 <style>
 /* Anime Loading Screen Overhaul */
 #status {
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
 	background: radial-gradient(circle at center, #181528 0%, #08060f 100%);
 	display: flex;
 	flex-direction: column;
@@ -40,16 +55,21 @@ def inject(index_path: Path) -> None:
 	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 	color: #ffffff;
 	text-align: center;
+	padding: 12px;
+	box-sizing: border-box;
+	overflow: hidden;
+	z-index: 99999;
 }
 #status[style*="display: none"] {
 	display: none !important;
 }
 #status-splash {
-	max-height: 220px !important;
-	max-width: 85% !important;
-	border-radius: 16px;
-	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 180, 0, 0.25);
-	margin-bottom: 24px !important;
+	max-height: 180px;
+	max-width: 82%;
+	object-fit: contain;
+	border-radius: 14px;
+	box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 180, 0, 0.25);
+	margin-bottom: 16px;
 }
 #status-progress {
 	display: none !important; /* Replaced by custom anime progress bar */
@@ -58,62 +78,126 @@ def inject(index_path: Path) -> None:
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	width: min(520px, 86vw);
+	width: min(480px, 92vw);
 }
 .loading-title {
-	font-size: 24px;
+	font-size: clamp(16px, 4vw, 22px);
 	font-weight: 800;
 	color: #ffd54f;
-	letter-spacing: 1.5px;
-	margin-bottom: 6px;
-	text-shadow: 0 0 16px rgba(255, 213, 79, 0.6);
+	letter-spacing: 1px;
+	margin-bottom: 4px;
+	text-shadow: 0 0 12px rgba(255, 213, 79, 0.5);
 }
 .loading-sub {
-	font-size: 13px;
+	font-size: clamp(10px, 2.5vw, 12px);
 	color: #90a4ae;
-	margin-bottom: 18px;
+	margin-bottom: 12px;
 	letter-spacing: 0.5px;
 }
 .progress-bar-shell {
 	width: 100%;
-	height: 16px;
+	height: 14px;
 	background: rgba(255, 255, 255, 0.08);
 	border: 1.5px solid rgba(255, 213, 79, 0.6);
-	border-radius: 12px;
+	border-radius: 10px;
 	overflow: hidden;
-	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), inset 0 1px 3px rgba(0, 0, 0, 0.6);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 3px rgba(0, 0, 0, 0.6);
 	position: relative;
 }
 .progress-bar-fill {
 	height: 100%;
 	width: 0%;
 	background: linear-gradient(90deg, #ff5722 0%, #ffd54f 50%, #40c4ff 100%);
-	border-radius: 10px;
-	box-shadow: 0 0 16px rgba(255, 213, 79, 0.85);
-	transition: width 0.12s ease-out;
+	border-radius: 8px;
+	box-shadow: 0 0 14px rgba(255, 213, 79, 0.85);
+	transition: width 0.1s ease-out;
 }
 .loading-status-text {
-	margin-top: 14px;
-	font-size: 15px;
+	margin-top: 10px;
+	font-size: clamp(12px, 3vw, 14px);
 	font-weight: 700;
 	color: #ffe082;
-	letter-spacing: 0.6px;
+	letter-spacing: 0.5px;
 }
 .loading-tip {
-	margin-top: 22px;
-	font-size: 12px;
+	margin-top: 14px;
+	font-size: 11px;
 	color: #78909c;
 	font-style: italic;
-	line-height: 1.4;
-	max-width: 440px;
+	line-height: 1.3;
+	max-width: 420px;
 	background: rgba(255, 255, 255, 0.04);
-	padding: 8px 16px;
+	padding: 6px 14px;
 	border-radius: 8px;
 	border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.loading-portrait-hint {
+	display: none;
+	margin-top: 12px;
+	font-size: 12px;
+	color: #81d4fa;
+	background: rgba(3, 169, 244, 0.12);
+	border: 1px solid rgba(129, 212, 250, 0.35);
+	padding: 6px 14px;
+	border-radius: 8px;
+	animation: pulse-hint 2s infinite ease-in-out;
+}
+@media (orientation: portrait) {
+	.loading-portrait-hint {
+		display: block;
+	}
+}
+@keyframes pulse-hint {
+	0%, 100% { opacity: 0.7; transform: scale(1); }
+	50% { opacity: 1; transform: scale(1.02); }
+}
+
+/* Mobile Landscape & Compact Viewport Optimization */
+@media (max-height: 480px) {
+	#status {
+		padding: 6px;
+	}
+	#status-splash {
+		max-height: 64px !important;
+		margin-bottom: 6px !important;
+	}
+	.loading-title {
+		font-size: 15px !important;
+		margin-bottom: 2px !important;
+	}
+	.loading-sub {
+		display: none !important;
+	}
+	.progress-bar-shell {
+		height: 10px !important;
+	}
+	.loading-status-text {
+		margin-top: 6px !important;
+		font-size: 11px !important;
+	}
+	.loading-tip {
+		display: none !important;
+	}
+	.loading-portrait-hint {
+		display: none !important;
+	}
 }
 </style>
 
 <script>
+// Direct fast callback invoked by Godot's onProgress
+window.updateCustomProgress = function(current, total) {
+	var fill = document.getElementById('custom-progress-fill');
+	var txt = document.getElementById('custom-status-text');
+	if (total > 0) {
+		var pct = Math.min(100, Math.floor((current / total) * 100));
+		var curMB = (current / (1024 * 1024)).toFixed(1);
+		var totMB = (total / (1024 * 1024)).toFixed(1);
+		if (fill) fill.style.width = pct + '%';
+		if (txt) txt.innerText = 'Загрузка: ' + pct + '% (' + curMB + ' / ' + totMB + ' МБ)';
+	}
+};
+
 // Setup Anime Loading Card
 window.addEventListener('DOMContentLoaded', function() {
 	var status = document.getElementById('status');
@@ -135,17 +219,18 @@ window.addEventListener('DOMContentLoaded', function() {
 		<div class="progress-bar-shell">
 			<div class="progress-bar-fill" id="custom-progress-fill"></div>
 		</div>
-		<div class="loading-status-text" id="custom-status-text">Инициализация WebAssembly...</div>
+		<div class="loading-status-text" id="custom-status-text">Инициализация игрового мира...</div>
+		<div class="loading-portrait-hint">📱 Поверните смартфон горизонтально для лучшего обзора</div>
 		<div class="loading-tip" id="custom-tip">💡 Совет: Переключайтесь между Ху Тао [1] и Эллен [2] прямо во время боя!</div>
 	`;
 	status.appendChild(card);
 
 	var tips = [
 		"💡 Совет: Переключайтесь между Ху Тао [1] и Эллен [2] прямо во время боя!",
-		"💡 Совет: Зажмите ЛКМ для мощного заряженного вихревого удара!",
-		"💡 Совет: Подойдите к Эллен Джо и нажмите [F], чтобы пригласить ее в отряд!",
-		"💡 Совет: Вся Японская школа и крупные постройки разрушаются по частям и секциям!",
-		"💡 Совет: Кнопка [Q] мгновенно восстанавливает здоровье исцеляющим зельем."
+		"💡 Совет: Зажмите кнопку атаки для мощного заряженного вихревого удара!",
+		"💡 Совет: Подойдите к Эллен Джо и нажмите кнопку действия, чтобы пригласить в отряд!",
+		"💡 Совет: Вся Японская школа и крупные постройки разрушаются по частям и ярусам!",
+		"💡 Совет: Кнопка зелья мгновенно восстанавливает здоровье."
 	];
 	var tipIdx = 0;
 	setInterval(function() {
@@ -153,41 +238,19 @@ window.addEventListener('DOMContentLoaded', function() {
 		var tipElem = document.getElementById('custom-tip');
 		if (tipElem) tipElem.innerText = tips[tipIdx];
 	}, 4000);
-
-	// Observe and poll standard Godot progress updates
-	var defaultProgress = document.getElementById('status-progress');
-	var fill = document.getElementById('custom-progress-fill');
-	var txt = document.getElementById('custom-status-text');
-
-	function updateCustomProgress() {
-		if (!defaultProgress) return;
-		var val = parseFloat(defaultProgress.value) || 0;
-		var max = parseFloat(defaultProgress.max) || 0;
-		if (max > 0) {
-			var pct = Math.min(100, Math.floor((val / max) * 100));
-			var curMB = (val / (1024 * 1024)).toFixed(1);
-			var totMB = (max / (1024 * 1024)).toFixed(1);
-			if (fill) fill.style.width = pct + '%';
-			if (txt) txt.innerText = 'Загрузка игрового мира: ' + pct + '% (' + curMB + ' / ' + totMB + ' МБ)';
-		}
-	}
-
-	var pollInterval = setInterval(updateCustomProgress, 50);
-
-	if (defaultProgress) {
-		var observer = new MutationObserver(updateCustomProgress);
-		observer.observe(defaultProgress, { attributes: true });
-	}
 });
 </script>
 """
 
-    if "</body>" in html and "#custom-loading-card" not in html:
+    # If enhancements already present, replace them; otherwise insert before </body>
+    if "<!-- ==================== SDVGACHA WEB ENHANCEMENTS" in html:
+        import re
+        html = re.sub(r'<!-- ==================== SDVGACHA WEB ENHANCEMENTS.*?</body>', enhancement + '\n</body>', html, flags=re.DOTALL)
+    elif "</body>" in html:
         html = html.replace("</body>", enhancement + "\n</body>")
-        index_path.write_text(html, encoding="utf-8")
-        print(f"Successfully injected web optimizations into {index_path}")
-    else:
-        print("Web optimizations already present.")
+
+    index_path.write_text(html, encoding="utf-8")
+    print(f"Successfully injected responsive mobile & PC web optimizations into {index_path}")
 
 if __name__ == "__main__":
     target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("build/web/index.html")
